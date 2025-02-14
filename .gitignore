@@ -1,0 +1,9 @@
+node_modules/
+dist/
+src/work-in-progress.ts
+.coverage
+.idea
+.history
+.vscode/
+package-lock.json
+.DS_Store
