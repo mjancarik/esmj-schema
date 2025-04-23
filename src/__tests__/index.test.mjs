@@ -9,7 +9,13 @@ describe('schema', () => {
       .object({
         username: s.string().default('unknown'),
         password: s.string().default('unknown'),
-        account: s.number().default(0),
+        birthday: s.preprocess((value) => new Date(value), s.date()),
+        account: s
+          .string()
+          .default('0')
+          .transform((value) => Number.parseInt(value))
+          .pipe(s.number()),
+        money: s.number().default(0),
         address: s
           .object({
             street: s.string(),
@@ -26,8 +32,10 @@ describe('schema', () => {
       .parse({
         username: 'foo',
         password: 'bar',
+        birthday: '2024-10-05T21:05:00.000Z',
         extra: 'baz',
-        account: 1234,
+        account: '1234',
+        money: 100,
         address: { street: 'street' },
         records: [undefined, { name: 'record2' }],
       });
@@ -36,6 +44,8 @@ describe('schema', () => {
       username: 'foo',
       password: 'bar',
       account: 1234,
+      birthday: new Date('2024-10-05T21:05:00.000Z'),
+      money: 100,
       address: {
         street: 'street',
         city: undefined,

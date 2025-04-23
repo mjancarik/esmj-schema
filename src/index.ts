@@ -1,48 +1,92 @@
-// simple-schema
 export interface SchemaInterface<Input, Output> {
   parse(value: Input | Partial<Input> | unknown): Output;
   safeParse(
     value: Input | Partial<Input> | unknown,
   ): { success: true; data: Output } | { success: false; error: Error };
   optional(): SchemaInterface<Input, Partial<Output> | undefined>;
+  transform<NewOutput>(
+    callback: (value: Input) => NewOutput,
+  ): SchemaInterface<Input, NewOutput>;
   nullable(): SchemaInterface<Input, Output | null>;
   nullish(): SchemaInterface<Input, Output | undefined | null>;
   default(
     defaultValue: Partial<Input> | (() => Partial<Input>) | Partial<Output>,
   ): SchemaInterface<Input, Output>;
+  pipe<NewOutput>(
+    schema: SchemaInterface<Output, NewOutput>,
+  ): SchemaInterface<Output, NewOutput>;
+  refine(
+    validation: (value: Output) => boolean,
+    { message }: { message: string },
+  ): SchemaInterface<Input, Output>;
 }
 
+export interface StringSchemaInterface
+  extends SchemaInterface<string, string> {}
+export interface NumberSchemaInterface
+  extends SchemaInterface<number, number> {}
+export interface BooleanSchemaInterface
+  extends SchemaInterface<boolean, boolean> {}
+export interface DateSchemaInterface extends SchemaInterface<Date, Date> {}
+export interface ArraySchemaInterface<T extends SchemaType>
+  extends SchemaInterface<Array<T>, Array<ReturnType<T['parse']>>> {}
+export interface ObjectSchemaInterface<T extends Record<string, SchemaType>>
+  extends SchemaInterface<
+    { [Property in keyof T]: T[Property] },
+    { [Property in keyof T]: ReturnType<T[Property]['parse']> }
+  > {}
+
 export type SchemaType =
+  | StringSchemaInterface
   | SchemaInterface<string, string>
   | SchemaInterface<string, string | undefined>
   | SchemaInterface<string, string | null>
   | SchemaInterface<string, string | undefined | null>
+  | ObjectSchemaInterface<Record<string, SchemaType>>
   | SchemaInterface<object, object>
   | SchemaInterface<object, object | undefined>
   | SchemaInterface<object, object | null>
   | SchemaInterface<object, object | undefined | null>
+  | NumberSchemaInterface
   | SchemaInterface<number, number>
   | SchemaInterface<number, number | undefined>
   | SchemaInterface<number, number | null>
   | SchemaInterface<number, number | undefined | null>
+  | BooleanSchemaInterface
   | SchemaInterface<boolean, boolean>
   | SchemaInterface<boolean, boolean | undefined>
   | SchemaInterface<boolean, boolean | null>
   | SchemaInterface<boolean, boolean | undefined | null>
+  | DateSchemaInterface
+  | SchemaInterface<Date, Date>
+  | SchemaInterface<Date, Date | undefined>
+  | SchemaInterface<Date, Date | null>
+  | SchemaInterface<Date, Date | undefined | null>
+
+  //| ArraySchemaInterface<SchemaType>
+  | ArraySchemaInterface<
+      | StringSchemaInterface
+      | ObjectSchemaInterface<Record<string, SchemaType>>
+      | NumberSchemaInterface
+      | BooleanSchemaInterface
+    >
   | SchemaInterface<Array<unknown>, Array<unknown>>
   | SchemaInterface<Array<unknown>, Array<unknown> | undefined>
   | SchemaInterface<Array<unknown>, Array<unknown> | null>
   | SchemaInterface<Array<unknown>, Array<unknown> | undefined | null>;
+
+export type ExtenderType = (
+  inter: SchemaType,
+  validation: Function,
+  options: { message: string; type: string },
+) => SchemaType;
 
 export const s = {
   object<T extends Record<string, SchemaType>>(
     definition: {
       [Property in keyof T]: T[Property];
     },
-  ): SchemaInterface<
-    { [Property in keyof T]: T[Property] },
-    { [Property in keyof T]: ReturnType<T[Property]['parse']> }
-  > {
+  ): ObjectSchemaInterface<T> {
     const validation = (value) =>
       typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -87,30 +131,36 @@ export const s = {
 
     return schema;
   },
-  string(): SchemaInterface<string, string> {
+  string(): StringSchemaInterface {
     const validation = (value) => typeof value === 'string';
 
     return createSchemaInterface<string, string>(validation, {
       type: 'string',
-    });
+    }) as StringSchemaInterface;
   },
-  number(): SchemaInterface<number, number> {
+  number(): NumberSchemaInterface {
     const validation = (value) => typeof value === 'number';
 
     return createSchemaInterface<number, number>(validation, {
       type: 'number',
-    });
+    }) as NumberSchemaInterface;
   },
-  boolean(): SchemaInterface<boolean, boolean> {
+  boolean(): BooleanSchemaInterface {
     const validation = (value) => value === true || value === false;
 
     return createSchemaInterface<boolean, boolean>(validation, {
       type: 'boolean',
-    });
+    }) as BooleanSchemaInterface;
   },
-  array<T extends SchemaType>(
-    definition: T,
-  ): SchemaInterface<Array<T>, Array<ReturnType<T['parse']>>> {
+  date(): DateSchemaInterface {
+    const validation = (value) =>
+      value instanceof Date && !Number.isNaN(value.getTime());
+
+    return createSchemaInterface<Date, Date>(validation, {
+      type: 'date',
+    }) as DateSchemaInterface;
+  },
+  array<T extends SchemaType>(definition: T): ArraySchemaInterface<T> {
     const validation = (value) => Array.isArray(value);
 
     const schema = createSchemaInterface<
@@ -145,10 +195,19 @@ export const s = {
       return value;
     });
 
-    return schema;
+    return schema as ArraySchemaInterface<T>;
   },
   any() {
     return createSchemaInterface(() => true);
+  },
+  preprocess<T extends SchemaType>(callback: Function, schema: T) {
+    hookOriginal(schema, 'parse', (originalParse, value) => {
+      value = callback(value);
+
+      return originalParse(value);
+    });
+
+    return schema as T;
   },
 };
 
@@ -158,7 +217,7 @@ function errorMessageFactory(type) {
 }
 
 function hookOriginal<Input, Output>(
-  object: SchemaInterface<Input, Output>,
+  object: SchemaInterface<Input, Output> | SchemaType,
   method: string,
   action: (original: Function, ...args: unknown[]) => Output,
 ) {
@@ -196,6 +255,13 @@ function createSchemaInterface<Input, Output>(
       } catch (error) {
         return { success: false, error };
       }
+    },
+    transform(callback) {
+      hookOriginal(this, 'parse', (originalParse, value) => {
+        return callback(originalParse(value));
+      });
+
+      return this;
     },
     optional() {
       hookOriginal(this, 'parse', (originalParse, value) => {
@@ -251,6 +317,26 @@ function createSchemaInterface<Input, Output>(
 
       return this;
     },
+    pipe(schema) {
+      hookOriginal(this, 'parse', (originalParse, value) => {
+        return schema.parse(originalParse(value));
+      });
+
+      return this;
+    },
+    refine(validation, { message }) {
+      hookOriginal(this, 'parse', (originalParse, value) => {
+        const parsedValue = originalParse(value);
+
+        if (!validation(parsedValue)) {
+          throw new Error(message);
+        }
+
+        return parsedValue;
+      });
+
+      return this;
+    },
   };
 
   return extenders.reduce(
@@ -261,6 +347,8 @@ function createSchemaInterface<Input, Output>(
 
 const extenders: Function[] = [];
 
-export function extend(callback: Function) {
+export function extend(callback: ExtenderType) {
   extenders.push(callback);
 }
+
+export type Infer<T> = T extends SchemaType ? ReturnType<T['parse']> : unknown;

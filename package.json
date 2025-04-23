@@ -24,7 +24,7 @@
     "lint:fix": "npm run lint -- --fix --unsafe",
     "dev": "node_modules/.bin/tsup --dts --watch --onSuccess 'node ./dist/index.mjs'",
     "test": "node --test --experimental-strip-types",
-    "test:watch": "npm run test -- --watchAll",
+    "test:watch": "npm run test -- --watch",
     "preversion": "npm test && npm run lint && npm run build",
     "version": "npm run changelog && git add CHANGELOG.md",
     "postversion": "git push && git push --tags",
