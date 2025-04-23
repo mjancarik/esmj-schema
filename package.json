@@ -62,17 +62,17 @@
   "homepage": "https://github.com/mjancarik/esmj-schema#readme",
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@commitlint/cli": "^19.7.1",
-    "@commitlint/config-conventional": "^19.7.1",
-    "@typescript-eslint/eslint-plugin": "^8.24.0",
-    "@typescript-eslint/parser": "^8.24.0",
+    "@commitlint/cli": "^19.8.0",
+    "@commitlint/config-conventional": "^19.8.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.0",
+    "@typescript-eslint/parser": "^8.31.0",
     "commitizen": "^4.3.1",
     "conventional-changelog-cli": "^5.0.0",
     "cz-conventional-changelog": "^3.3.0",
     "git-cz": "^4.9.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.4.3",
-    "prettier": "^3.5.0",
-    "tsup": "^8.3.6"
+    "lint-staged": "^15.5.1",
+    "prettier": "^3.5.3",
+    "tsup": "^8.4.0"
   }
 }
