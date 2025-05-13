@@ -17,3 +17,4 @@ CHANGELOG.md
 tsup.config.mjs
 jest.config.js
 setupJest.mjs
+biome.json
