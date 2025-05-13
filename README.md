@@ -18,6 +18,18 @@ npm install @esmj/schema
 4. **Lightweight**: None dependencies and a small footprint make it ideal for projects where performance and simplicity are key.
 5. **Customizable**: Offers fine-grained control over validation and error handling.
 
+## Comparison with Similar Libraries
+
+When choosing a schema validation library, bundle size can be an important factor, especially for frontend applications where minimizing JavaScript size is critical. Here's how `@esmj/schema` compares to other popular libraries:
+
+| Library         | Bundle Size (minified + gzipped) |
+|------------------|---------------------------------|
+| `@esmj/schema`   | ~1 KB                           |
+| Superstruct      | ~3,2 KB                         |
+| Yup              | ~12,2 KB                        |
+| Zod              | ~14 KB                          |
+| Joi              | ~40 KB                          |
+
 ## Usage
 
 ### Basic Usage
@@ -123,6 +135,26 @@ Creates a schema that accepts any value.
 
 ```typescript
 const anySchema = s.any();
+```
+
+#### `s.enum(values)`
+
+Creates an enum schema that validates against a predefined set of string values.
+
+- **`values`**: An array of strings representing the allowed values for the enum. Each value must be a string.
+
+```typescript
+const enumSchema = s.enum(['admin', 'user', 'guest']);
+
+const validResult = enumSchema.parse('admin');
+console.log(validResult);
+// 'admin'
+
+const invalidResult = enumSchema.safeParse('invalidRole');
+console.log(invalidResult.success);
+// false
+console.log(invalidResult.error.message);
+// Error: Invalid enum value. Expected "admin" | "user" | "guest", received "invalidRole".
 ```
 
 #### `s.preprocess(callback, schema)`

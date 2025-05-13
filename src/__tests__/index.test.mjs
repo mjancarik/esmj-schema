@@ -90,4 +90,43 @@ describe('schema', () => {
       `Error parsing key "address.city": Error parsing key "city": The value "undefined" must be type of string but is type of "undefined".`,
     );
   });
+
+  it('should validate enum field correctly', () => {
+    const schema = s
+      .object({
+        username: s.string(),
+        role: s.enum(['admin', 'user', 'guest']).default('guest'),
+      })
+      .default({});
+
+    const validResult = schema.parse({
+      username: 'testuser',
+      role: 'admin',
+    });
+
+    assert.deepStrictEqual(validResult, {
+      username: 'testuser',
+      role: 'admin',
+    });
+
+    const defaultResult = schema.parse({
+      username: 'testuser',
+    });
+
+    assert.deepStrictEqual(defaultResult, {
+      username: 'testuser',
+      role: 'guest',
+    });
+
+    const invalidResult = schema.safeParse({
+      username: 'testuser',
+      role: 'invalidRole',
+    });
+
+    assert.equal(invalidResult.success, false);
+    assert.equal(
+      invalidResult.error.message,
+      `Error parsing key "role": Invalid enum value. Expected "admin" | "user" | "guest", received "invalidRole".`,
+    );
+  });
 });

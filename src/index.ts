@@ -21,6 +21,14 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Input, Output>;
 }
 
+type ToObject<T> = T extends readonly [infer Key, infer Func]
+  ? Key extends PropertyKey
+    ? { [P in Key]: Func }
+    : never
+  : never;
+
+export interface EnumSchemaInterface<T extends string>
+  extends SchemaInterface<string, T> {}
 export interface StringSchemaInterface
   extends SchemaInterface<string, string> {}
 export interface NumberSchemaInterface
@@ -62,6 +70,7 @@ export type SchemaType =
   | SchemaInterface<Date, Date | undefined>
   | SchemaInterface<Date, Date | null>
   | SchemaInterface<Date, Date | undefined | null>
+  | EnumSchemaInterface<string>
 
   //| ArraySchemaInterface<SchemaType>
   | ArraySchemaInterface<
@@ -69,6 +78,8 @@ export type SchemaType =
       | ObjectSchemaInterface<Record<string, SchemaType>>
       | NumberSchemaInterface
       | BooleanSchemaInterface
+      | DateSchemaInterface
+      | EnumSchemaInterface<string>
     >
   | SchemaInterface<Array<unknown>, Array<unknown>>
   | SchemaInterface<Array<unknown>, Array<unknown> | undefined>
@@ -80,6 +91,11 @@ export type ExtenderType = (
   validation: Function,
   options: { message: string; type: string },
 ) => SchemaType;
+
+interface CraeateSchemaInterfaceOptions {
+  type?: string;
+  message?: (value: unknown) => string;
+}
 
 export const s = {
   object<T extends Record<string, SchemaType>>(
@@ -160,6 +176,25 @@ export const s = {
       type: 'date',
     }) as DateSchemaInterface;
   },
+  enum(
+    definition: Readonly<Array<string>>,
+  ): EnumSchemaInterface<(typeof definition)[number]> {
+    const validation = (value) => definition.includes(value);
+
+    const message = (value) =>
+      `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
+    const type = 'enum';
+
+    const schema = createSchemaInterface<string, (typeof definition)[number]>(
+      validation,
+      {
+        type,
+        message,
+      },
+    ) as EnumSchemaInterface<(typeof definition)[number]>;
+
+    return schema as EnumSchemaInterface<(typeof definition)[number]>;
+  },
   array<T extends SchemaType>(definition: T): ArraySchemaInterface<T> {
     const validation = (value) => Array.isArray(value);
 
@@ -230,9 +265,9 @@ function hookOriginal<Input, Output>(
 
 function createSchemaInterface<Input, Output>(
   validation,
-  { type = 'any' } = {},
+  { type = 'any', message } = {} as CraeateSchemaInterfaceOptions,
 ) {
-  const message = errorMessageFactory(type);
+  message = message || errorMessageFactory(type);
 
   const options = {
     message,
