@@ -3,7 +3,138 @@ import { describe, it } from 'node:test';
 
 import { s } from '../index.ts';
 
-describe('schema', () => {
+describe('SchemaInterface Methods', () => {
+  it('should parse values correctly', () => {
+    const schema = s.string();
+    assert.equal(schema.parse('hello'), 'hello');
+    assert.throws(() => schema.parse(123), /must be type of string/);
+  });
+
+  it('should safeParse values correctly', () => {
+    const schema = s.string();
+    const result = schema.safeParse('hello');
+    assert.equal(result.success, true);
+    assert.equal(result.data, 'hello');
+
+    const errorResult = schema.safeParse(123);
+    assert.equal(errorResult.success, false);
+    assert.match(errorResult.error.message, /must be type of string/);
+  });
+
+  it('should handle optional values', () => {
+    const schema = s.string().optional();
+    assert.equal(schema.parse(undefined), undefined);
+    assert.equal(schema.parse('hello'), 'hello');
+  });
+
+  it('should handle nullable values', () => {
+    const schema = s.string().nullable();
+    assert.equal(schema.parse(null), null);
+    assert.equal(schema.parse('hello'), 'hello');
+  });
+
+  it('should handle nullish values', () => {
+    const schema = s.string().nullish();
+    assert.equal(schema.parse(null), null);
+    assert.equal(schema.parse(undefined), undefined);
+    assert.equal(schema.parse('hello'), 'hello');
+  });
+
+  it('should apply default values', () => {
+    const schema = s.string().default('default');
+    assert.equal(schema.parse(undefined), 'default');
+    assert.equal(schema.parse('hello'), 'hello');
+  });
+
+  it('should transform values', () => {
+    const schema = s.string().transform((value) => value.toUpperCase());
+    assert.equal(schema.parse('hello'), 'HELLO');
+  });
+
+  it('should pipe schemas', () => {
+    const schema = s
+      .string()
+      .transform((value) => Number.parseInt(value))
+      .pipe(s.number());
+    assert.equal(schema.parse('123'), 123);
+  });
+
+  it('should refine values', () => {
+    const schema = s.string().refine((val) => val.startsWith('A'), {
+      message: 'String must start with "A"',
+    });
+    assert.equal(schema.parse('Apple'), 'Apple');
+    assert.throws(() => schema.parse('Banana'), /String must start with "A"/);
+  });
+});
+
+describe('s Object Methods', () => {
+  it('should create string schemas', () => {
+    const schema = s.string();
+    assert.equal(schema.parse('hello'), 'hello');
+  });
+
+  it('should create number schemas', () => {
+    const schema = s.number();
+    assert.equal(schema.parse(123), 123);
+    assert.throws(() => schema.parse('hello'), /must be type of number/);
+  });
+
+  it('should create boolean schemas', () => {
+    const schema = s.boolean();
+    assert.equal(schema.parse(true), true);
+    assert.equal(schema.parse(false), false);
+    assert.throws(() => schema.parse('hello'), /must be type of boolean/);
+  });
+
+  it('should create date schemas', () => {
+    const schema = s.date();
+    const date = new Date();
+    assert.equal(schema.parse(date), date);
+    assert.throws(() => schema.parse('hello'), /must be type of date/);
+  });
+
+  it('should create enum schemas', () => {
+    const schema = s.enum(['admin', 'user', 'guest']);
+    assert.equal(schema.parse('admin'), 'admin');
+    assert.throws(() => schema.parse('invalid'), /Invalid enum value/);
+  });
+
+  it('should create array schemas', () => {
+    const schema = s.array(s.string());
+    assert.deepEqual(schema.parse(['hello', 'world']), ['hello', 'world']);
+    assert.throws(() => schema.parse(['hello', 123]), /must be type of string/);
+  });
+
+  it('should create object schemas', () => {
+    const schema = s.object({
+      name: s.string(),
+      age: s.number(),
+    });
+    assert.deepEqual(schema.parse({ name: 'John', age: 30 }), {
+      name: 'John',
+      age: 30,
+    });
+    assert.throws(
+      () => schema.parse({ name: 'John' }),
+      /must be type of number/,
+    );
+  });
+
+  it('should create any schemas', () => {
+    const schema = s.any();
+    assert.equal(schema.parse('hello'), 'hello');
+    assert.equal(schema.parse(123), 123);
+    assert.equal(schema.parse(null), null);
+  });
+
+  it('should preprocess values', () => {
+    const schema = s.preprocess((value) => value.trim(), s.string());
+    assert.equal(schema.parse('   hello   '), 'hello');
+  });
+});
+
+describe('Integration Tests', () => {
   it('should parse result from defined schema and input', () => {
     const result = s
       .object({
