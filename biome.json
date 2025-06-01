@@ -1,6 +1,11 @@
 {
   "files": {
-    "include": ["src/**/*.mjs", "src/**/*.ts", "utils/**/*.mjs"],
+    "include": [
+      "src/**/*.mjs",
+      "src/**/*.ts",
+      "utils/**/*.mjs",
+      "benchmark/**/*.ts"
+    ],
     "ignore": [".history/**/*"]
   },
   "formatter": {

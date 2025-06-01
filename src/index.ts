@@ -1,8 +1,28 @@
+type ErrorStructure = {
+  message: string;
+  cause?: {
+    key?: string;
+  };
+};
+
+type Valid<Output> = {
+  success: true;
+  data: Output;
+};
+
+type Invalid = {
+  success: false;
+  error: ErrorStructure;
+};
+
+type InternalParseOutput<Output> = Valid<Output> | Invalid;
+
 export interface SchemaInterface<Input, Output> {
+  _parse(value: Input | Partial<Input> | unknown): InternalParseOutput<Output>;
   parse(value: Input | Partial<Input> | unknown): Output;
   safeParse(
     value: Input | Partial<Input> | unknown,
-  ): { success: true; data: Output } | { success: false; error: Error };
+  ): InternalParseOutput<Output>;
   optional(): SchemaInterface<Input, Partial<Output> | undefined>;
   transform<NewOutput>(
     callback: (value: Input) => NewOutput,
@@ -20,12 +40,6 @@ export interface SchemaInterface<Input, Output> {
     { message }: { message: string },
   ): SchemaInterface<Input, Output>;
 }
-
-type ToObject<T> = T extends readonly [infer Key, infer Func]
-  ? Key extends PropertyKey
-    ? { [P in Key]: Func }
-    : never
-  : never;
 
 export interface EnumSchemaInterface<T extends string>
   extends SchemaInterface<string, T> {}
@@ -97,82 +111,83 @@ interface CraeateSchemaInterfaceOptions {
   message?: (value: unknown) => string;
 }
 
+const stringValidation = (value) =>
+  typeof value === 'string' || value instanceof String;
+const numberValidation = (value) =>
+  typeof value === 'number' || value instanceof Number;
+const booleanValidation = (value) => value === true || value === false;
+const dateValidation = (value) =>
+  value instanceof Date && !Number.isNaN(value.getTime());
+const arrayValidation = (value) => Array.isArray(value);
+const objectValidation = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 export const s = {
   object<T extends Record<string, SchemaType>>(
     definition: {
       [Property in keyof T]: T[Property];
     },
   ): ObjectSchemaInterface<T> {
-    const validation = (value) =>
-      typeof value === 'object' && value !== null && !Array.isArray(value);
-
     const schema = createSchemaInterface<
       { [Property in keyof T]: T[Property] },
       { [Property in keyof T]: ReturnType<T[Property]['parse']> }
-    >(validation, {
+    >(objectValidation, {
       type: 'object',
     });
 
-    hookOriginal(schema, 'parse', (originalParse, ...args) => {
+    hookOriginal(schema, '_parse', (originalParse, ...args) => {
       const value = originalParse(...args);
 
-      if (definition && typeof value === 'object') {
-        return (Object.keys(definition) as string[]).reduce(
-          (acc, key) => {
-            if (typeof definition[key]?.parse === 'function') {
-              try {
-                acc[key] = definition[key].parse(value[key]);
-              } catch (error) {
-                key = error.cause?.key ? `${key}.${error.cause.key}` : key;
-
-                throw new Error(
-                  `Error parsing key "${key}": ${error.message}`,
-                  {
-                    cause: { key },
-                  },
-                );
-              }
-            }
-
-            return acc;
-          },
-          {} as Record<string, unknown>,
-        ) as {
-          [Property in keyof T]: ReturnType<T[Property]['parse']>;
-        };
+      if (value.success === false) {
+        return value;
       }
 
-      return value;
+      const acc = {} as Record<string, unknown>;
+      for (const key in definition) {
+        let item = definition[key]._parse(value.data[key]);
+
+        if (item.success) {
+          acc[key] = item.data;
+        } else {
+          item = item as Invalid;
+          const errorKey = item?.error?.cause?.key
+            ? `${key}.${item?.error?.cause?.key}`
+            : key;
+
+          item.error.message = `Error parsing key "${errorKey}": ${item.error.message}`;
+          item.error.cause = { key: errorKey };
+
+          return item;
+        }
+      }
+
+      return {
+        success: true,
+        data: acc as {
+          [Property in keyof T]: ReturnType<T[Property]['parse']>;
+        },
+      };
     });
 
     return schema;
   },
   string(): StringSchemaInterface {
-    const validation = (value) => typeof value === 'string';
-
-    return createSchemaInterface<string, string>(validation, {
+    return createSchemaInterface<string, string>(stringValidation, {
       type: 'string',
     }) as StringSchemaInterface;
   },
   number(): NumberSchemaInterface {
-    const validation = (value) => typeof value === 'number';
-
-    return createSchemaInterface<number, number>(validation, {
+    return createSchemaInterface<number, number>(numberValidation, {
       type: 'number',
     }) as NumberSchemaInterface;
   },
   boolean(): BooleanSchemaInterface {
-    const validation = (value) => value === true || value === false;
-
-    return createSchemaInterface<boolean, boolean>(validation, {
+    return createSchemaInterface<boolean, boolean>(booleanValidation, {
       type: 'boolean',
     }) as BooleanSchemaInterface;
   },
   date(): DateSchemaInterface {
-    const validation = (value) =>
-      value instanceof Date && !Number.isNaN(value.getTime());
-
-    return createSchemaInterface<Date, Date>(validation, {
+    return createSchemaInterface<Date, Date>(dateValidation, {
       type: 'date',
     }) as DateSchemaInterface;
   },
@@ -196,38 +211,43 @@ export const s = {
     return schema as EnumSchemaInterface<(typeof definition)[number]>;
   },
   array<T extends SchemaType>(definition: T): ArraySchemaInterface<T> {
-    const validation = (value) => Array.isArray(value);
-
     const schema = createSchemaInterface<
       Array<T>,
       Array<ReturnType<T['parse']>>
-    >(validation, {
+    >(arrayValidation, {
       type: 'array',
     });
 
-    hookOriginal(schema, 'parse', (originalParse, value) => {
-      value = originalParse(value);
+    hookOriginal(schema, '_parse', (originalParse, ...args) => {
+      const value = originalParse(...args);
 
-      if (definition && Array.isArray(value)) {
-        return value.map((item, index) => {
-          try {
-            return definition.parse(item);
-          } catch (error) {
-            const key = error.cause?.key
-              ? `${index}.${error.cause.key}`
-              : index;
-
-            throw new Error(
-              `Error parsing index "${index}": ${error.message}`,
-              {
-                cause: { key },
-              },
-            );
-          }
-        }) as Array<ReturnType<T['parse']>>;
+      if (value.success === false) {
+        return value;
       }
 
-      return value;
+      const acc = [] as Array<ReturnType<T['parse']>>;
+      for (let index = 0; index < value.data.length; index++) {
+        let item = definition._parse(value.data[index]);
+
+        if (item.success) {
+          acc.push(item.data as ReturnType<T['parse']>);
+        } else {
+          item = item as Invalid;
+          const errorKey = item.error?.cause?.key
+            ? `${index}.${item.error.cause.key}`
+            : `${index}`;
+
+          item.error.message = `Error parsing index "${index}": ${item.error.message}`;
+          item.error.cause = { key: errorKey };
+
+          return item;
+        }
+      }
+
+      return { success: true, data: acc } as {
+        success: true;
+        data: Array<ReturnType<T['parse']>>;
+      };
     });
 
     return schema as ArraySchemaInterface<T>;
@@ -236,7 +256,7 @@ export const s = {
     return createSchemaInterface(() => true);
   },
   preprocess<T extends SchemaType>(callback: Function, schema: T) {
-    hookOriginal(schema, 'parse', (originalParse, value) => {
+    hookOriginal(schema, '_parse', (originalParse, value) => {
       value = callback(value);
 
       return originalParse(value);
@@ -275,96 +295,118 @@ function createSchemaInterface<Input, Output>(
   };
 
   const defaultInterface: SchemaInterface<Input, Output> = {
-    parse(value) {
-      if (!validation(value)) {
-        throw new Error(message(value));
+    _parse(value) {
+      const isValid = validation(value);
+
+      if (isValid) {
+        return { success: true, data: value as Output };
       }
 
-      return value as Output;
+      return { success: false, error: { message: message(value) } };
+    },
+    parse(value) {
+      let item = defaultInterface._parse(value);
+
+      if (!item.success) {
+        item = item as Invalid;
+
+        throw new Error(item.error.message, { cause: item.error.cause });
+      }
+
+      return item.data as Output;
     },
     safeParse(value) {
-      try {
-        const data = this.parse(value);
-
-        return { success: true, data };
-      } catch (error) {
-        return { success: false, error };
-      }
+      return defaultInterface._parse(value);
     },
     transform(callback) {
-      hookOriginal(this, 'parse', (originalParse, value) => {
-        return callback(originalParse(value));
+      hookOriginal(this, '_parse', (originalParse, value) => {
+        const item = originalParse(value);
+
+        if (!item.success) {
+          return item;
+        }
+
+        item.data = callback(item.data);
+
+        return item;
       });
 
       return this;
     },
     optional() {
-      hookOriginal(this, 'parse', (originalParse, value) => {
-        try {
-          return originalParse(value);
-        } catch (error) {
-          // eslint-disable-line
-          return undefined;
+      hookOriginal(this, '_parse', (originalParse, value) => {
+        const item = originalParse(value);
+
+        if (!item.success) {
+          item.data = undefined;
+          item.success = true; // Mark as success since we are allowing undefined
         }
+
+        return item;
       });
 
       return this;
     },
     nullable() {
-      hookOriginal(this, 'parse', (originalParse, value) => {
-        try {
-          return originalParse(value);
-        } catch (error) {
-          // eslint-disable-line
-          return null;
+      hookOriginal(this, '_parse', (originalParse, value) => {
+        const item = originalParse(value);
+
+        if (!item.success) {
+          item.data = null;
+          item.success = true;
+          return item;
         }
+
+        return item;
       });
 
       return this;
     },
     nullish() {
-      hookOriginal(this, 'parse', (originalParse, value) => {
-        try {
-          return originalParse(value);
-        } catch (error) {
-          // eslint-disable-line
-          if (value === undefined || value === null) {
-            return value;
-          }
+      hookOriginal(this, '_parse', (originalParse, value) => {
+        const item = originalParse(value);
 
-          return null;
+        if (!item.success && (value === undefined || value === null)) {
+          item.success = true; // Mark as success since we are allowing undefined or null
+          item.data = value;
         }
+
+        return item;
       });
 
       return this;
     },
     default(defaultValue) {
-      hookOriginal(this, 'parse', (originalParse, value) => {
+      hookOriginal(this, '_parse', (originalParse, value) => {
         if (value === undefined) {
           value = defaultValue;
           value =
             typeof defaultValue === 'function' ? defaultValue() : defaultValue;
         }
-        value = originalParse(value);
 
-        return value as Partial<Output>;
+        return originalParse(value);
       });
 
       return this;
     },
     pipe(schema) {
-      hookOriginal(this, 'parse', (originalParse, value) => {
-        return schema.parse(originalParse(value));
+      hookOriginal(this, '_parse', (originalParse, value) => {
+        const item = originalParse(value);
+        if (!item.success) {
+          return item;
+        }
+
+        return schema._parse(item.data);
       });
 
       return this;
     },
     refine(validation, { message }) {
-      hookOriginal(this, 'parse', (originalParse, value) => {
+      hookOriginal(this, '_parse', (originalParse, value) => {
         const parsedValue = originalParse(value);
 
-        if (!validation(parsedValue)) {
-          throw new Error(message);
+        if (!validation(parsedValue.data)) {
+          return { success: false, error: { message } };
         }
 
         return parsedValue;
@@ -374,10 +416,12 @@ function createSchemaInterface<Input, Output>(
     },
   };
 
-  return extenders.reduce(
-    (acc, extend) => extend(acc, validation, options) ?? acc,
-    defaultInterface,
-  );
+  return extenders.length > 0
+    ? extenders.reduce(
+        (acc, extend) => extend(acc, validation, options) ?? acc,
+        defaultInterface,
+      )
+    : defaultInterface;
 }
 
 const extenders: Function[] = [];
