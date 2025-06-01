@@ -12,6 +12,7 @@
 .husky/
 .history/
 utils/
+benchmark/
 README.md
 CHANGELOG.md
 tsup.config.mjs
