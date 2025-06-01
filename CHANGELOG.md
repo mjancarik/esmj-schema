@@ -1,3 +1,14 @@
+## 0.2.0 (2025-06-01)
+
+* docs: ✏️ add zod/4 ([b4a8107](https://github.com/mjancarik/esmj-schema/commit/b4a8107))
+* feat: 🎸 improve performance for safeParse and parse methods ([2e1ffba](https://github.com/mjancarik/esmj-schema/commit/2e1ffba))
+
+
+### BREAKING CHANGE
+
+* 🧨 The error from safeParse is not native Error instance.
+
+
 ## <small>0.1.1 (2025-05-13)</small>
 
 * chore: 🤖 add biome file to ignore list ([9794d74](https://github.com/mjancarik/esmj-schema/commit/9794d74))
