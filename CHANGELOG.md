@@ -1,3 +1,11 @@
+## <small>0.2.1 (2025-06-05)</small>
+
+* docs: ✏️ mark winner in comparison ([f8e0117](https://github.com/mjancarik/esmj-schema/commit/f8e0117))
+* chore: 🤖 remove  benchmark from npm module ([03d532f](https://github.com/mjancarik/esmj-schema/commit/03d532f))
+* chore: 🤖 update commands ([9188c10](https://github.com/mjancarik/esmj-schema/commit/9188c10))
+
+
+
 ## 0.2.0 (2025-06-01)
 
 * docs: ✏️ add zod/4 ([b4a8107](https://github.com/mjancarik/esmj-schema/commit/b4a8107))
