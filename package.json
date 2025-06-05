@@ -22,7 +22,7 @@
   "scripts": {
     "lint": "biome check --no-errors-on-unmatched",
     "lint:fix": "npm run lint -- --fix --unsafe",
-    "benchmark": "node benchmark/index.ts",
+    "benchmark": "node benchmark/benchmark.ts",
     "dev": "node_modules/.bin/tsup --dts --watch --onSuccess 'node ./dist/index.mjs'",
     "test": "node --test --experimental-strip-types",
     "test:watch": "npm run test -- --watch",
