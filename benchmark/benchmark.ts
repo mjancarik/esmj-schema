@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { z as zodMini } from '@zod/mini'; // Import Zod Mini
+import { type } from 'arktype';
 import Joi from 'joi'; // Import Joi
 import superStruct from 'superstruct'; // Import Superstruct
 import * as yup from 'yup'; // Import Yup
@@ -119,6 +120,18 @@ function scenarioParseSchema(testData) {
       date: Joi.date().optional(), // Optional date field
     }),
     tags: Joi.array().items(Joi.string().required()).required(),
+  });
+
+  const arktypeSchema = type({
+    username: 'string',
+    password: 'string',
+    age: 'number?',
+    address: {
+      'street?': 'string',
+      'city?': 'string',
+      'date?': 'Date',
+    },
+    tags: 'string[]',
   });
 
   const result = {} as Record<string, object>;
@@ -248,6 +261,26 @@ function scenarioParseSchema(testData) {
     }
   });
   result.joi = joiResult;
+
+  const arkTypeResult = {};
+  arkTypeResult['1'] = benchmark('ArkType 1', () => {
+    for (let i = 0; i < 1; i++) {
+      arktypeSchema(testData);
+    }
+  });
+
+  arkTypeResult['1_000'] = benchmark('ArkType 1_000', () => {
+    for (let i = 0; i < 1_000; i++) {
+      arktypeSchema(testData);
+    }
+  });
+
+  arkTypeResult['1_000_000'] = benchmark('ArkType 1_000_000', () => {
+    for (let i = 0; i < 1_000_000; i++) {
+      arktypeSchema(testData);
+    }
+  });
+  result.arkType = arkTypeResult;
 
   return result;
 }
@@ -553,6 +586,56 @@ function scenarioCreatingSchema() {
     }
   });
   result.joi = joiResult;
+
+  const arkTypeResult = {};
+  arkTypeResult['1'] = benchmark('ArkType 1', () => {
+    for (let i = 0; i < 1; i++) {
+      const arktypeSchema = type({
+        username: 'string',
+        password: 'string',
+        age: 'number?',
+        address: {
+          'street?': 'string',
+          'city?': 'string',
+          'date?': 'Date',
+        },
+        tags: 'string[]',
+      });
+    }
+  });
+
+  arkTypeResult['1_000'] = benchmark('ArkType 1_000', () => {
+    for (let i = 0; i < 1_000; i++) {
+      const arktypeSchema = type({
+        username: 'string',
+        password: 'string',
+        age: 'number?',
+        address: {
+          'street?': 'string',
+          'city?': 'string',
+          'date?': 'Date',
+        },
+        tags: 'string[]',
+      });
+    }
+  });
+
+  arkTypeResult['1_000_000'] = benchmark('ArkType 1_000_000', () => {
+    for (let i = 0; i < 1_000_000; i++) {
+      const arktypeSchema = type({
+        username: 'string',
+        password: 'string',
+        age: 'number?',
+        address: {
+          'street?': 'string',
+          'city?': 'string',
+          'date?': 'Date',
+        },
+        tags: 'string[]',
+      });
+    }
+  });
+  result.arkTypeResult = arkTypeResult;
 
   return result;
 }

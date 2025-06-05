@@ -31,6 +31,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @zod/mini        | ~20,5 KB                        |
 | Joi              | ~40,4 KB                        |
 | Zod@4            | ~40,8 KB                        |
+| Arktype          | ~41,8 KB                        |
 
 ### Performance Comparison
 
@@ -38,12 +39,13 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library         | 1 Schema    | 1,000 Schema     | 1,000,000 Schema     |
 |-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | `0.02 ms`   | 4.93 ms          | `399.62 ms`          |
+| `@esmj/schema`  | `0.02 ms`   | 4.93 ms          | `1.13 s`             |
 | zod@3           | 0.08 ms     | 9.68 ms          | 8.53 s               |
 | @zod/mini       | 0.22 ms     | 39.77 ms         | 34.51 s              |
 | Yup             | 0.54 ms     | 14.03 ms         | 12.34 s              |
-| Superstruct     | 0.13 ms     | `1.04 ms`        | 487.94 ms            |
+| Superstruct     | 0.13 ms     | `3.67 ms`        | 1.74 s               |
 | Joi             | 0.62 ms     | 31.60 ms         | 23.06 s              |
+| ArkType         | 0.37 ms     | 54.60 ms         | Infinity             |
 
 #### Parsing Performance
 
@@ -55,6 +57,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | Yup             | 0.30 ms     | 9.49 ms          | 8.69 s               |
 | Superstruct     | 0.08 ms     | 4.18 ms          | 3.71 s               |
 | Joi             | 0.33 ms     | 3.35 ms          | 2.69 s               |
+| ArkType         | 0.08 ms     | 0.70 ms          | 576,80 ms            |
 
 #### Error Handling Performance
 
@@ -66,6 +69,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | Yup             | 0.27 ms     | 19.28 ms         | 18.87 s              |
 | Superstruct     | 0.04 ms     | 8.62 ms          | 6.24 s               |
 | Joi             | 0.15 ms     | 4.13 ms          | 2.57 s               |
+| ArkType         | 0.07 ms     | 3.78 ms          | 2.87 s               |
 
 **Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
 
