@@ -1,3 +1,9 @@
+## <small>0.2.2 (2025-06-05)</small>
+
+* docs: ✏️ add arkType to comparison ([3c1ca97](https://github.com/mjancarik/esmj-schema/commit/3c1ca97))
+
+
+
 ## <small>0.2.1 (2025-06-05)</small>
 
 * docs: ✏️ mark winner in comparison ([f8e0117](https://github.com/mjancarik/esmj-schema/commit/f8e0117))
