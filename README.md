@@ -24,7 +24,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library         | Bundle Size (minified + gzipped) |
 |------------------|---------------------------------|
-| `@esmj/schema`   | ~1 KB                           |
+| `@esmj/schema`   | `~1 KB`                         |
 | Superstruct      | ~3.2 KB                         |
 | Yup              | ~12.2 KB                        |
 | Zod@3            | ~13 KB                          |
@@ -36,22 +36,22 @@ When choosing a schema validation library, bundle size can be an important facto
 
 #### Schema Creation Performance
 
-| Library         | 1 Iteration | 1,000 Iterations | 1,000,000 Iterations |
+| Library         | 1 Schema    | 1,000 Schema     | 1,000,000 Schema     |
 |-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | 0.02 ms     | 4.93 ms          | 399.62 ms            |
+| `@esmj/schema`  | `0.02 ms`   | 4.93 ms          | `399.62 ms`          |
 | zod@3           | 0.08 ms     | 9.68 ms          | 8.53 s               |
 | @zod/mini       | 0.22 ms     | 39.77 ms         | 34.51 s              |
 | Yup             | 0.54 ms     | 14.03 ms         | 12.34 s              |
-| Superstruct     | 0.13 ms     | 1.04 ms          | 487.94 ms            |
+| Superstruct     | 0.13 ms     | `1.04 ms`        | 487.94 ms            |
 | Joi             | 0.62 ms     | 31.60 ms         | 23.06 s              |
 
 #### Parsing Performance
 
 | Library         | 1 Iteration | 1,000 Iterations | 1,000,000 Iterations |
 |-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | 0.05 ms     | 0.46 ms          | 267.93 ms            |
+| `@esmj/schema`  | `0.05 ms`   | 0.46 ms          | 267.93 ms            |
 | zod@3           | 0.14 ms     | 1.44 ms          | 897.89 ms            |
-| @zod/mini       | 0.23 ms     | 0.42 ms          | 199.08 ms            |
+| @zod/mini       | 0.23 ms     | `0.42 ms`        | `199.08 ms`          |
 | Yup             | 0.30 ms     | 9.49 ms          | 8.69 s               |
 | Superstruct     | 0.08 ms     | 4.18 ms          | 3.71 s               |
 | Joi             | 0.33 ms     | 3.35 ms          | 2.69 s               |
@@ -60,12 +60,14 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library         | 1 Iteration | 1,000 Iterations | 1,000,000 Iterations |
 |-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | 0.03 ms     | 0.59 ms          | 365.32 ms            |
+| `@esmj/schema`  | `0.03 ms`   | `0.59 ms`        | `365.32 ms`          |
 | zod3            | 0.05 ms     | 2.09 ms          | 1.26 s               |
 | @zod/mini       | 0.07 ms     | 0.99 ms          | 545.12 ms            |
 | Yup             | 0.27 ms     | 19.28 ms         | 18.87 s              |
 | Superstruct     | 0.04 ms     | 8.62 ms          | 6.24 s               |
 | Joi             | 0.15 ms     | 4.13 ms          | 2.57 s               |
+
+**Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
 
 ## Usage
 
