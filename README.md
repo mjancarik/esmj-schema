@@ -31,7 +31,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @zod/mini        | ~20,5 KB                        |
 | Joi              | ~40,4 KB                        |
 | Zod@4            | ~40,8 KB                        |
-| Arktype          | ~41,8 KB                        |
+| ArkType          | ~41,8 KB                        |
 
 ### Performance Comparison
 
