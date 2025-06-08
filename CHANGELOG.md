@@ -1,3 +1,9 @@
+## <small>0.2.3 (2025-06-08)</small>
+
+* docs: ✏️ fix typo ([fdc63a2](https://github.com/mjancarik/esmj-schema/commit/fdc63a2))
+
+
+
 ## <small>0.2.2 (2025-06-05)</small>
 
 * docs: ✏️ add arkType to comparison ([3c1ca97](https://github.com/mjancarik/esmj-schema/commit/3c1ca97))
