@@ -261,3 +261,54 @@ describe('Integration Tests', () => {
     );
   });
 });
+
+describe('s.union Method', () => {
+  it('should validate a value matching one of the schemas', () => {
+    const schema = s.union([s.string(), s.number(), s.boolean()]);
+
+    assert.equal(schema.parse('hello'), 'hello');
+    assert.equal(schema.parse(42), 42);
+    assert.equal(schema.parse(true), true);
+  });
+
+  it('should fail validation for a value not matching any schema', () => {
+    const schema = s.union([s.string(), s.number(), s.boolean()]);
+
+    const result = schema.safeParse({ key: 'value' });
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error.message,
+      `Invalid union value. Expected the value to match one of the schemas: "string" | "number" | "boolean", but received "object" with value "[object Object]".`,
+    );
+  });
+
+  it('should work with nested schemas', () => {
+    const schema = s.union([
+      s.object({ type: s.string(), value: s.number() }),
+      s.object({ type: s.string(), value: s.string() }),
+    ]);
+
+    const validResult1 = schema.parse({ type: 'number', value: 42 });
+    assert.deepStrictEqual(validResult1, { type: 'number', value: 42 });
+
+    const validResult2 = schema.parse({ type: 'string', value: 'hello' });
+    assert.deepStrictEqual(validResult2, { type: 'string', value: 'hello' });
+
+    const invalidResult = schema.safeParse({ type: 'unknown', value: true });
+    assert.equal(invalidResult.success, false);
+    assert.equal(
+      invalidResult.error.message,
+      `Invalid union value. Expected the value to match one of the schemas: "object" | "object", but received "object" with value "[object Object]".`,
+    );
+  });
+
+  it('should handle empty union definitions gracefully', () => {
+    const schema = s.union([]);
+    const result = schema.safeParse('test');
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error.message,
+      `Invalid union value. Expected the value to match one of the schemas: , but received "string" with value "test".`,
+    );
+  });
+});

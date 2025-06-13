@@ -17,12 +17,12 @@ type Invalid = {
 
 type InternalParseOutput<Output> = Valid<Output> | Invalid;
 
+// @TODO Partial<Input> should be used only for optional schema keys
 export interface SchemaInterface<Input, Output> {
-  _parse(value: Input | Partial<Input> | unknown): InternalParseOutput<Output>;
-  parse(value: Input | Partial<Input> | unknown): Output;
-  safeParse(
-    value: Input | Partial<Input> | unknown,
-  ): InternalParseOutput<Output>;
+  _getType(): string;
+  _parse(value: Input | Partial<Input>): InternalParseOutput<Output>;
+  parse(value: Input | Partial<Input>): Output;
+  safeParse(value: Input | Partial<Input>): InternalParseOutput<Output>;
   optional(): SchemaInterface<Input, Partial<Output> | undefined>;
   transform<NewOutput>(
     callback: (value: Input) => NewOutput,
@@ -41,6 +41,12 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Input, Output>;
 }
 
+export interface UnionSchemaInterface<
+  T extends Array<SchemaInterface<unknown, unknown>>,
+> extends SchemaInterface<
+    ReturnType<T[number]['parse']>,
+    ReturnType<T[number]['parse']>
+  > {}
 export interface EnumSchemaInterface<T extends string>
   extends SchemaInterface<string, T> {}
 export interface StringSchemaInterface
@@ -54,12 +60,13 @@ export interface ArraySchemaInterface<T extends SchemaType>
   extends SchemaInterface<Array<T>, Array<ReturnType<T['parse']>>> {}
 export interface ObjectSchemaInterface<T extends Record<string, SchemaType>>
   extends SchemaInterface<
-    { [Property in keyof T]: T[Property] },
+    { [Property in keyof T]: ReturnType<T[Property]['parse']> },
     { [Property in keyof T]: ReturnType<T[Property]['parse']> }
   > {}
 
 export type SchemaType =
   | StringSchemaInterface
+  | SchemaInterface<unknown, unknown>
   | SchemaInterface<string, string>
   | SchemaInterface<string, string | undefined>
   | SchemaInterface<string, string | null>
@@ -85,6 +92,7 @@ export type SchemaType =
   | SchemaInterface<Date, Date | null>
   | SchemaInterface<Date, Date | undefined | null>
   | EnumSchemaInterface<string>
+  | UnionSchemaInterface<Array<SchemaInterface<unknown, unknown>>>
 
   //| ArraySchemaInterface<SchemaType>
   | ArraySchemaInterface<
@@ -106,7 +114,7 @@ export type ExtenderType = (
   options: { message: string; type: string },
 ) => SchemaType;
 
-interface CraeateSchemaInterfaceOptions {
+interface CreateSchemaInterfaceOptions {
   type?: string;
   message?: (value: unknown) => string;
 }
@@ -129,7 +137,7 @@ export const s = {
     },
   ): ObjectSchemaInterface<T> {
     const schema = createSchemaInterface<
-      { [Property in keyof T]: T[Property] },
+      { [Property in keyof T]: ReturnType<T[Property]['parse']> },
       { [Property in keyof T]: ReturnType<T[Property]['parse']> }
     >(objectValidation, {
       type: 'object',
@@ -144,7 +152,11 @@ export const s = {
 
       const acc = {} as Record<string, unknown>;
       for (const key in definition) {
-        let item = definition[key]._parse(value.data[key]);
+        let item = (
+          definition[key]._parse as (
+            value: unknown,
+          ) => InternalParseOutput<unknown>
+        )(value.data[key]);
 
         if (item.success) {
           acc[key] = item.data;
@@ -227,7 +239,9 @@ export const s = {
 
       const acc = [] as Array<ReturnType<T['parse']>>;
       for (let index = 0; index < value.data.length; index++) {
-        let item = definition._parse(value.data[index]);
+        let item = (
+          definition._parse as (value: unknown) => InternalParseOutput<unknown>
+        )(value.data[index]);
 
         if (item.success) {
           acc.push(item.data as ReturnType<T['parse']>);
@@ -264,6 +278,34 @@ export const s = {
 
     return schema as T;
   },
+  union<T extends Array<SchemaType>>(definitions: T): UnionSchemaInterface<T> {
+    const validation = (value) => {
+      for (let index = 0; index < definitions.length; index++) {
+        const result = (
+          definitions[index]._parse as (
+            value: unknown,
+          ) => InternalParseOutput<unknown>
+        )(value);
+
+        if (result.success) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const message = (value) =>
+      `Invalid union value. Expected the value to match one of the schemas: ${definitions.map((definition) => `"${definition._getType()}"`).join(' | ')}, but received "${typeof value}" with value "${value}".`;
+
+    const schema = createSchemaInterface<
+      ReturnType<T[number]['parse']>,
+      ReturnType<T[number]['parse']>
+    >(validation, {
+      type: 'union',
+      message,
+    });
+
+    return schema;
+  },
 };
 
 function errorMessageFactory(type) {
@@ -285,7 +327,7 @@ function hookOriginal<Input, Output>(
 
 function createSchemaInterface<Input, Output>(
   validation,
-  { type = 'any', message } = {} as CraeateSchemaInterfaceOptions,
+  { type = 'any', message } = {} as CreateSchemaInterfaceOptions,
 ) {
   message = message || errorMessageFactory(type);
 
@@ -295,11 +337,14 @@ function createSchemaInterface<Input, Output>(
   };
 
   const defaultInterface: SchemaInterface<Input, Output> = {
+    _getType() {
+      return type;
+    },
     _parse(value) {
       const isValid = validation(value);
 
       if (isValid) {
-        return { success: true, data: value as Output };
+        return { success: true, data: value as unknown as Output };
       }
 
       return { success: false, error: { message: message(value) } };
@@ -384,7 +429,7 @@ function createSchemaInterface<Input, Output>(
             typeof defaultValue === 'function' ? defaultValue() : defaultValue;
         }
 
-        return originalParse(value);
+        return originalParse(value) as Partial<typeof value>;
       });
 
       return this;

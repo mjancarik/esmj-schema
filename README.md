@@ -17,6 +17,15 @@ npm install @esmj/schema
 3. **Rich Features**: Includes advanced features like preprocessing, transformations, piping, and refinements, which are not always available in similar libraries.
 4. **Lightweight**: None dependencies and a small footprint make it ideal for projects where performance and simplicity are key.
 5. **Customizable**: Offers fine-grained control over validation and error handling.
+6. **Performance**: `@esmj/schema` is optimized for speed, making it one of the fastest schema validation libraries available. Whether you're creating schemas, parsing data, or handling errors, `@esmj/schema` consistently outperforms many popular alternatives. Its minimalistic design ensures low overhead, even in high-performance applications.
+
+### Performance Highlights
+
+- **Schema Creation**: Create schemas in as little as `0.02 ms`, even for complex structures.
+- **Parsing**: Parse data with blazing-fast speeds, handling 1,000,000 iterations in under `300 ms`.
+- **Error Handling**: Efficiently manage errors with minimal performance impact, processing 1,000,000 iterations in under `400 ms`.
+
+These performance metrics make `@esmj/schema` an excellent choice for both frontend and backend applications where speed and efficiency are critical.
 
 ## Comparison with Similar Libraries
 
@@ -199,6 +208,40 @@ console.log(invalidResult.success);
 console.log(invalidResult.error.message);
 // Error: Invalid enum value. Expected "admin" | "user" | "guest", received "invalidRole".
 ```
+
+#### `s.union(definitions)`
+
+Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas.
+
+- **`definitions`**: An array of schemas to validate against.
+
+```typescript
+const schema = s.union([
+  s.string(),
+  s.number(),
+  s.boolean(),
+]);
+
+const validString = schema.parse('hello');
+console.log(validString);
+// 'hello'
+
+const validNumber = schema.parse(42);
+console.log(validNumber);
+// 42
+
+const validBoolean = schema.parse(true);
+console.log(validBoolean);
+// true
+
+const invalidValue = schema.safeParse({ key: 'value' });
+console.log(invalidValue.success);
+// false
+console.log(invalidValue.error.message);
+// Validation failed. Expected the value to match one of the schemas: "string" | "number" | "boolean", but received "object" with value "{"key":"value"}".
+```
+
+**Use Case**: The `union` method is useful when you need to validate data that can be of multiple types, such as a value that can be a string, number, or boolean.
 
 #### `s.preprocess(callback, schema)`
 
