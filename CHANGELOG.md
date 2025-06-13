@@ -1,3 +1,13 @@
+## 0.3.0 (2025-06-13)
+
+* feat: 🎸 add union method and fix types ([d1dd21b](https://github.com/mjancarik/esmj-schema/commit/d1dd21b))
+
+
+### BREAKING CHANGE
+
+* 🧨 Fixed types.
+
+
 ## <small>0.2.3 (2025-06-08)</small>
 
 * docs: ✏️ fix typo ([fdc63a2](https://github.com/mjancarik/esmj-schema/commit/fdc63a2))
