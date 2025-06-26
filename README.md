@@ -33,7 +33,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library         | Bundle Size (minified + gzipped) |
 |------------------|---------------------------------|
-| `@esmj/schema`   | `~1 KB`                         |
+| `@esmj/schema`   | `~1,1 KB`                       |
 | Superstruct      | ~3.2 KB                         |
 | Yup              | ~12.2 KB                        |
 | Zod@3            | ~13 KB                          |
