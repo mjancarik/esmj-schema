@@ -1,3 +1,9 @@
+## <small>0.3.1 (2025-06-26)</small>
+
+* feat: 🎸 allow define custom erro message ([d4f8fe8](https://github.com/mjancarik/esmj-schema/commit/d4f8fe8))
+
+
+
 ## 0.3.0 (2025-06-13)
 
 * feat: 🎸 add union method and fix types ([d1dd21b](https://github.com/mjancarik/esmj-schema/commit/d1dd21b))
