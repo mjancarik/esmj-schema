@@ -59,9 +59,17 @@ describe('SchemaInterface Methods', () => {
     assert.equal(schema.parse('123'), 123);
   });
 
-  it('should refine values', () => {
+  it('should refine values with custom error', () => {
     const schema = s.string().refine((val) => val.startsWith('A'), {
       message: 'String must start with "A"',
+    });
+    assert.equal(schema.parse('Apple'), 'Apple');
+    assert.throws(() => schema.parse('Banana'), /String must start with "A"/);
+  });
+
+  it('should refine values with custom error as function', () => {
+    const schema = s.string().refine((val) => val.startsWith('A'), {
+      message: () => 'String must start with "A"',
     });
     assert.equal(schema.parse('Apple'), 'Apple');
     assert.throws(() => schema.parse('Banana'), /String must start with "A"/);
@@ -310,5 +318,78 @@ describe('s.union Method', () => {
       result.error.message,
       `Invalid union value. Expected the value to match one of the schemas: , but received "string" with value "test".`,
     );
+  });
+});
+
+describe('SchemaInterfaceOptions', () => {
+  it('should allow custom error messages', () => {
+    const schema = s.string({
+      message: (value) => `Custom error: "${value}" is not a valid string.`,
+    });
+
+    const result = schema.safeParse(123);
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error.message,
+      'Custom error: "123" is not a valid string.',
+    );
+  });
+
+  it('should use default error messages when no custom message is provided', () => {
+    const schema = s.string();
+
+    const result = schema.safeParse(123);
+    assert.equal(result.success, false);
+    assert.match(
+      result.error.message,
+      /The value "123" must be type of string but is type of "number"./,
+    );
+  });
+
+  it('should allow overriding the type in options', () => {
+    const schema = s.string({
+      message: (value) =>
+        `Validation failed for type "customString". Received: "${value}".`,
+    });
+
+    const result = schema.safeParse(123);
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error.message,
+      'Validation failed for type "customString". Received: "123".',
+    );
+  });
+
+  it('should work with other schema types using custom messages', () => {
+    const schema = s.number({
+      message: (value) => `Custom error: "${value}" is not a valid number.`,
+    });
+
+    const result = schema.safeParse('hello');
+    assert.equal(result.success, false);
+    assert.equal(
+      result.error.message,
+      'Custom error: "hello" is not a valid number.',
+    );
+  });
+
+  it('should handle complex schemas with custom messages', () => {
+    const schema = s.object(
+      {
+        name: s.string({
+          message: (value) => `Invalid name: "${value}".`,
+        }),
+        age: s.number({
+          message: (value) => `Invalid age: "${value}".`,
+        }),
+      },
+      {
+        message: (value) => `Invalid object: "${JSON.stringify(value)}".`,
+      },
+    );
+
+    const result = schema.safeParse({ name: 123, age: 'hello' });
+    assert.equal(result.success, false);
+    assert.match(result.error.message, /Invalid name: "123"./);
   });
 });

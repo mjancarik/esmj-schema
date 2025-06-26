@@ -37,7 +37,7 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Output, NewOutput>;
   refine(
     validation: (value: Output) => boolean,
-    { message }: { message: string },
+    { message }: { message: ErrorMessage },
   ): SchemaInterface<Input, Output>;
 }
 
@@ -108,16 +108,19 @@ export type SchemaType =
   | SchemaInterface<Array<unknown>, Array<unknown> | null>
   | SchemaInterface<Array<unknown>, Array<unknown> | undefined | null>;
 
+type ErrorMessage = string | ((value: unknown) => string);
+
 export type ExtenderType = (
   inter: SchemaType,
   validation: Function,
-  options: { message: string; type: string },
+  options: { message: ErrorMessage; type: string },
 ) => SchemaType;
 
 interface CreateSchemaInterfaceOptions {
   type?: string;
   message?: (value: unknown) => string;
 }
+export type SchemaInterfaceOptions = Omit<CreateSchemaInterfaceOptions, 'type'>;
 
 const stringValidation = (value) =>
   typeof value === 'string' || value instanceof String;
@@ -135,11 +138,13 @@ export const s = {
     definition: {
       [Property in keyof T]: T[Property];
     },
+    options: SchemaInterfaceOptions,
   ): ObjectSchemaInterface<T> {
     const schema = createSchemaInterface<
       { [Property in keyof T]: ReturnType<T[Property]['parse']> },
       { [Property in keyof T]: ReturnType<T[Property]['parse']> }
     >(objectValidation, {
+      ...options,
       type: 'object',
     });
 
@@ -183,28 +188,33 @@ export const s = {
 
     return schema;
   },
-  string(): StringSchemaInterface {
+  string(options: SchemaInterfaceOptions): StringSchemaInterface {
     return createSchemaInterface<string, string>(stringValidation, {
+      ...options,
       type: 'string',
     }) as StringSchemaInterface;
   },
-  number(): NumberSchemaInterface {
+  number(options: SchemaInterfaceOptions): NumberSchemaInterface {
     return createSchemaInterface<number, number>(numberValidation, {
+      ...options,
       type: 'number',
     }) as NumberSchemaInterface;
   },
-  boolean(): BooleanSchemaInterface {
+  boolean(options: SchemaInterfaceOptions): BooleanSchemaInterface {
     return createSchemaInterface<boolean, boolean>(booleanValidation, {
+      ...options,
       type: 'boolean',
     }) as BooleanSchemaInterface;
   },
-  date(): DateSchemaInterface {
+  date(options: SchemaInterfaceOptions): DateSchemaInterface {
     return createSchemaInterface<Date, Date>(dateValidation, {
+      ...options,
       type: 'date',
     }) as DateSchemaInterface;
   },
   enum(
     definition: Readonly<Array<string>>,
+    options: SchemaInterfaceOptions,
   ): EnumSchemaInterface<(typeof definition)[number]> {
     const validation = (value) => definition.includes(value);
 
@@ -215,18 +225,23 @@ export const s = {
     const schema = createSchemaInterface<string, (typeof definition)[number]>(
       validation,
       {
-        type,
         message,
+        ...options,
+        type,
       },
     ) as EnumSchemaInterface<(typeof definition)[number]>;
 
     return schema as EnumSchemaInterface<(typeof definition)[number]>;
   },
-  array<T extends SchemaType>(definition: T): ArraySchemaInterface<T> {
+  array<T extends SchemaType>(
+    definition: T,
+    options: SchemaInterfaceOptions,
+  ): ArraySchemaInterface<T> {
     const schema = createSchemaInterface<
       Array<T>,
       Array<ReturnType<T['parse']>>
     >(arrayValidation, {
+      ...options,
       type: 'array',
     });
 
@@ -278,7 +293,10 @@ export const s = {
 
     return schema as T;
   },
-  union<T extends Array<SchemaType>>(definitions: T): UnionSchemaInterface<T> {
+  union<T extends Array<SchemaType>>(
+    definitions: T,
+    options: SchemaInterfaceOptions,
+  ): UnionSchemaInterface<T> {
     const validation = (value) => {
       for (let index = 0; index < definitions.length; index++) {
         const result = (
@@ -300,8 +318,9 @@ export const s = {
       ReturnType<T[number]['parse']>,
       ReturnType<T[number]['parse']>
     >(validation, {
-      type: 'union',
       message,
+      ...options,
+      type: 'union',
     });
 
     return schema;

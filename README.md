@@ -130,88 +130,87 @@ console.log(result);
 
 ### Schema Types
 
-#### `s.string()`
+#### `s.string(options?)`
 
-Creates a string schema.
-
-```typescript
-const stringSchema = s.string();
-```
-
-#### `s.number()`
-
-Creates a number schema.
+Creates a string schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
 
 ```typescript
-const numberSchema = s.number();
-```
-
-#### `s.boolean()`
-
-Creates a boolean schema.
-
-```typescript
-const booleanSchema = s.boolean();
-```
-
-#### `s.date()`
-
-Creates a date schema.
-
-```typescript
-const dateSchema = s.date();
-```
-
-#### `s.object(definition)`
-
-Creates an object schema with the given definition.
-
-```typescript
-const objectSchema = s.object({
-  key: s.string(),
-  value: s.number(),
+const stringSchema = s.string({
+  message: (value) => `Custom error: "${value}" is not a valid string.`,
 });
 ```
 
-#### `s.array(definition)`
+#### `s.number(options?)`
 
-Creates an array schema with the given item definition.
-
-```typescript
-const arraySchema = s.array(s.string());
-```
-
-#### `s.any()`
-
-Creates a schema that accepts any value.
+Creates a number schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
 
 ```typescript
-const anySchema = s.any();
+const numberSchema = s.number({
+  message: (value) => `Custom error: "${value}" is not a valid number.`,
+});
 ```
 
-#### `s.enum(values)`
+#### `s.boolean(options?)`
 
-Creates an enum schema that validates against a predefined set of string values.
+Creates a boolean schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+
+```typescript
+const booleanSchema = s.boolean({
+  message: (value) => `Custom error: "${value}" is not a valid boolean.`,
+});
+```
+
+#### `s.date(options?)`
+
+Creates a date schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+
+```typescript
+const dateSchema = s.date({
+  message: (value) => `Custom error: "${value}" is not a valid date.`,
+});
+```
+
+#### `s.object(definition, options?)`
+
+Creates an object schema with the given definition. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+
+```typescript
+const objectSchema = s.object(
+  {
+    key: s.string(),
+    value: s.number(),
+  },
+  {
+    message: (value) => `Custom error: "${JSON.stringify(value)}" is not a valid object.`,
+  },
+);
+```
+
+#### `s.array(definition, options?)`
+
+Creates an array schema with the given item definition. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+
+```typescript
+const arraySchema = s.array(s.string(), {
+  message: (value) => `Custom error: "${JSON.stringify(value)}" is not a valid array.`,
+});
+```
+
+#### `s.enum(values, options?)`
+
+Creates an enum schema that validates against a predefined set of string values. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
 
 - **`values`**: An array of strings representing the allowed values for the enum. Each value must be a string.
 
 ```typescript
-const enumSchema = s.enum(['admin', 'user', 'guest']);
-
-const validResult = enumSchema.parse('admin');
-console.log(validResult);
-// 'admin'
-
-const invalidResult = enumSchema.safeParse('invalidRole');
-console.log(invalidResult.success);
-// false
-console.log(invalidResult.error.message);
-// Error: Invalid enum value. Expected "admin" | "user" | "guest", received "invalidRole".
+const enumSchema = s.enum(['admin', 'user', 'guest'], {
+  message: (value) => `Custom error: "${value}" is not a valid enum value.`,
+});
 ```
 
-#### `s.union(definitions)`
+#### `s.union(definitions, options?)`
 
-Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas.
+Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
 
 - **`definitions`**: An array of schemas to validate against.
 
@@ -242,6 +241,23 @@ console.log(invalidValue.error.message);
 ```
 
 **Use Case**: The `union` method is useful when you need to validate data that can be of multiple types, such as a value that can be a string, number, or boolean.
+
+```typescript
+const schema = s.union(
+  [s.string(), s.number(), s.boolean()],
+  {
+    message: (value) => `Custom error: "${value}" does not match any of the union schemas.`,
+  },
+);
+```
+
+#### `s.any()`
+
+Creates a schema that accepts any value.
+
+```typescript
+const anySchema = s.any();
+```
 
 #### `s.preprocess(callback, schema)`
 
