@@ -1,3 +1,10 @@
+## <small>0.3.2 (2025-06-27)</small>
+
+* docs: ✏️ update documentation ([5dfa1ce](https://github.com/mjancarik/esmj-schema/commit/5dfa1ce))
+* docs: ✏️ update library size ([1128d0f](https://github.com/mjancarik/esmj-schema/commit/1128d0f))
+
+
+
 ## <small>0.3.1 (2025-06-26)</small>
 
 * feat: 🎸 allow define custom erro message ([d4f8fe8](https://github.com/mjancarik/esmj-schema/commit/d4f8fe8))
