@@ -132,7 +132,7 @@ console.log(result);
 
 #### `s.string(options?)`
 
-Creates a string schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates a string schema. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const stringSchema = s.string({
@@ -142,7 +142,7 @@ const stringSchema = s.string({
 
 #### `s.number(options?)`
 
-Creates a number schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates a number schema. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const numberSchema = s.number({
@@ -152,7 +152,7 @@ const numberSchema = s.number({
 
 #### `s.boolean(options?)`
 
-Creates a boolean schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates a boolean schema. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const booleanSchema = s.boolean({
@@ -162,7 +162,7 @@ const booleanSchema = s.boolean({
 
 #### `s.date(options?)`
 
-Creates a date schema. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates a date schema. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const dateSchema = s.date({
@@ -172,7 +172,7 @@ const dateSchema = s.date({
 
 #### `s.object(definition, options?)`
 
-Creates an object schema with the given definition. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates an object schema with the given definition. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const objectSchema = s.object(
@@ -188,7 +188,7 @@ const objectSchema = s.object(
 
 #### `s.array(definition, options?)`
 
-Creates an array schema with the given item definition. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates an array schema with the given item definition. You can optionally pass `options` to customize error messages.
 
 ```typescript
 const arraySchema = s.array(s.string(), {
@@ -198,7 +198,7 @@ const arraySchema = s.array(s.string(), {
 
 #### `s.enum(values, options?)`
 
-Creates an enum schema that validates against a predefined set of string values. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates an enum schema that validates against a predefined set of string values. You can optionally pass `options` to customize error messages.
 
 - **`values`**: An array of strings representing the allowed values for the enum. Each value must be a string.
 
@@ -210,7 +210,7 @@ const enumSchema = s.enum(['admin', 'user', 'guest'], {
 
 #### `s.union(definitions, options?)`
 
-Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas. You can optionally pass `SchemaInterfaceOptions` to customize error messages.
+Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas. You can optionally pass `options` to customize error messages.
 
 - **`definitions`**: An array of schemas to validate against.
 
