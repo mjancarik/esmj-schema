@@ -1,3 +1,9 @@
+## <small>0.3.3 (2025-07-20)</small>
+
+* fix: 🐛 typescript types ([1410a7f](https://github.com/mjancarik/esmj-schema/commit/1410a7f))
+
+
+
 ## <small>0.3.2 (2025-06-27)</small>
 
 * docs: ✏️ update documentation ([5dfa1ce](https://github.com/mjancarik/esmj-schema/commit/5dfa1ce))
