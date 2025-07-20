@@ -113,7 +113,7 @@ type ErrorMessage = string | ((value: unknown) => string);
 export type ExtenderType = (
   inter: SchemaType,
   validation: Function,
-  options: { message: ErrorMessage; type: string },
+  options?: { message: ErrorMessage; type: string },
 ) => SchemaType;
 
 interface CreateSchemaInterfaceOptions {
@@ -138,7 +138,7 @@ export const s = {
     definition: {
       [Property in keyof T]: T[Property];
     },
-    options: SchemaInterfaceOptions,
+    options?: SchemaInterfaceOptions,
   ): ObjectSchemaInterface<T> {
     const schema = createSchemaInterface<
       { [Property in keyof T]: ReturnType<T[Property]['parse']> },
@@ -188,25 +188,25 @@ export const s = {
 
     return schema;
   },
-  string(options: SchemaInterfaceOptions): StringSchemaInterface {
+  string(options?: SchemaInterfaceOptions): StringSchemaInterface {
     return createSchemaInterface<string, string>(stringValidation, {
       ...options,
       type: 'string',
     }) as StringSchemaInterface;
   },
-  number(options: SchemaInterfaceOptions): NumberSchemaInterface {
+  number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
     return createSchemaInterface<number, number>(numberValidation, {
       ...options,
       type: 'number',
     }) as NumberSchemaInterface;
   },
-  boolean(options: SchemaInterfaceOptions): BooleanSchemaInterface {
+  boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
     return createSchemaInterface<boolean, boolean>(booleanValidation, {
       ...options,
       type: 'boolean',
     }) as BooleanSchemaInterface;
   },
-  date(options: SchemaInterfaceOptions): DateSchemaInterface {
+  date(options?: SchemaInterfaceOptions): DateSchemaInterface {
     return createSchemaInterface<Date, Date>(dateValidation, {
       ...options,
       type: 'date',
@@ -214,7 +214,7 @@ export const s = {
   },
   enum(
     definition: Readonly<Array<string>>,
-    options: SchemaInterfaceOptions,
+    options?: SchemaInterfaceOptions,
   ): EnumSchemaInterface<(typeof definition)[number]> {
     const validation = (value) => definition.includes(value);
 
@@ -235,7 +235,7 @@ export const s = {
   },
   array<T extends SchemaType>(
     definition: T,
-    options: SchemaInterfaceOptions,
+    options?: SchemaInterfaceOptions,
   ): ArraySchemaInterface<T> {
     const schema = createSchemaInterface<
       Array<T>,
@@ -295,7 +295,7 @@ export const s = {
   },
   union<T extends Array<SchemaType>>(
     definitions: T,
-    options: SchemaInterfaceOptions,
+    options?: SchemaInterfaceOptions,
   ): UnionSchemaInterface<T> {
     const validation = (value) => {
       for (let index = 0; index < definitions.length; index++) {
