@@ -1,3 +1,9 @@
+## <small>0.3.4 (2025-08-01)</small>
+
+* fix: 🐛 options.message can be always string or function ([8a6f471](https://github.com/mjancarik/esmj-schema/commit/8a6f471))
+
+
+
 ## <small>0.3.3 (2025-07-20)</small>
 
 * fix: 🐛 typescript types ([1410a7f](https://github.com/mjancarik/esmj-schema/commit/1410a7f))
