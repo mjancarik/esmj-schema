@@ -37,7 +37,7 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Output, NewOutput>;
   refine(
     validation: (value: Output) => boolean,
-    { message }: { message: ErrorMessage },
+    options?: SchemaInterfaceOptions,
   ): SchemaInterface<Input, Output>;
 }
 
@@ -118,7 +118,7 @@ export type ExtenderType = (
 
 interface CreateSchemaInterfaceOptions {
   type?: string;
-  message?: (value: unknown) => string;
+  message?: ErrorMessage;
 }
 export type SchemaInterfaceOptions = Omit<CreateSchemaInterfaceOptions, 'type'>;
 
@@ -366,7 +366,12 @@ function createSchemaInterface<Input, Output>(
         return { success: true, data: value as unknown as Output };
       }
 
-      return { success: false, error: { message: message(value) } };
+      return {
+        success: false,
+        error: {
+          message: typeof message === 'function' ? message(value) : message,
+        },
+      };
     },
     parse(value) {
       let item = defaultInterface._parse(value);
@@ -465,12 +470,21 @@ function createSchemaInterface<Input, Output>(
 
       return this;
     },
-    refine(validation, { message }) {
+    refine(validation, { message } = {}) {
       hookOriginal(this, '_parse', (originalParse, value) => {
         const parsedValue = originalParse(value);
 
+        if (!parsedValue.success) {
+          return parsedValue;
+        }
+
         if (!validation(parsedValue.data)) {
-          return { success: false, error: { message } };
+          return {
+            success: false,
+            error: {
+              message: typeof message === 'function' ? message(value) : message,
+            },
+          };
         }
 
         return parsedValue;

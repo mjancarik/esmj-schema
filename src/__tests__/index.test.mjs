@@ -283,6 +283,7 @@ describe('s.union Method', () => {
     const schema = s.union([s.string(), s.number(), s.boolean()]);
 
     const result = schema.safeParse({ key: 'value' });
+
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
@@ -312,7 +313,9 @@ describe('s.union Method', () => {
 
   it('should handle empty union definitions gracefully', () => {
     const schema = s.union([]);
+
     const result = schema.safeParse('test');
+
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
@@ -328,6 +331,7 @@ describe('SchemaInterfaceOptions', () => {
     });
 
     const result = schema.safeParse(123);
+
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
@@ -339,6 +343,7 @@ describe('SchemaInterfaceOptions', () => {
     const schema = s.string();
 
     const result = schema.safeParse(123);
+
     assert.equal(result.success, false);
     assert.match(
       result.error.message,
@@ -353,6 +358,7 @@ describe('SchemaInterfaceOptions', () => {
     });
 
     const result = schema.safeParse(123);
+
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
@@ -366,6 +372,7 @@ describe('SchemaInterfaceOptions', () => {
     });
 
     const result = schema.safeParse('hello');
+
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
@@ -389,7 +396,74 @@ describe('SchemaInterfaceOptions', () => {
     );
 
     const result = schema.safeParse({ name: 123, age: 'hello' });
+
     assert.equal(result.success, false);
     assert.match(result.error.message, /Invalid name: "123"./);
+  });
+});
+
+describe('s.string() and s.string().refine message option', () => {
+  it('should fail with constant string message', () => {
+    const schema = s
+      .string()
+      .refine((val) => val.length > 3, { message: 'Too short' });
+
+    const result = schema.safeParse('abc');
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, 'Too short');
+  });
+
+  it('should fail with function message', () => {
+    const schema = s.string().refine((val) => val.length > 3, {
+      message: (val) => `Length of "${val}" is too short`,
+    });
+
+    const result = schema.safeParse('abc');
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, 'Length of "abc" is too short');
+  });
+
+  it('should pass when valid', () => {
+    const schema = s
+      .string()
+      .refine((val) => val.length > 3, { message: 'Too short' });
+
+    const result = schema.safeParse('abcd');
+
+    assert.equal(result.success, true);
+    assert.equal(result.data, 'abcd');
+  });
+});
+
+describe('s.string() message option', () => {
+  it('should fail with constant string message', () => {
+    const schema = s.string({ message: 'Not a string!' });
+
+    const result = schema.safeParse(123);
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, 'Not a string!');
+  });
+
+  it('should fail with function message', () => {
+    const schema = s.string({
+      message: (value) => `Type of value is ${typeof value}`,
+    });
+
+    const result = schema.safeParse(123);
+
+    assert.equal(result.success, false);
+    assert.equal(result.error.message, 'Type of value is number');
+  });
+
+  it('should pass when valid', () => {
+    const schema = s.string({ message: 'Not a string!' });
+
+    const result = schema.safeParse('hello');
+
+    assert.equal(result.success, true);
+    assert.equal(result.data, 'hello');
   });
 });

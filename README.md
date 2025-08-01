@@ -33,7 +33,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library         | Bundle Size (minified + gzipped) |
 |------------------|---------------------------------|
-| `@esmj/schema`   | `~1,1 KB`                       |
+| `@esmj/schema`   | `~1,2 KB`                       |
 | Superstruct      | ~3.2 KB                         |
 | Yup              | ~12.2 KB                        |
 | Zod@3            | ~13 KB                          |
@@ -134,8 +134,14 @@ console.log(result);
 
 Creates a string schema. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const stringSchema = s.string({
+  message: 'This is a constant error message.',
+});
+
+const stringSchemaFunc = s.string({
   message: (value) => `Custom error: "${value}" is not a valid string.`,
 });
 ```
@@ -144,8 +150,14 @@ const stringSchema = s.string({
 
 Creates a number schema. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const numberSchema = s.number({
+  message: 'This is a constant error message.',
+});
+
+const numberSchemaFunc = s.number({
   message: (value) => `Custom error: "${value}" is not a valid number.`,
 });
 ```
@@ -154,8 +166,14 @@ const numberSchema = s.number({
 
 Creates a boolean schema. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const booleanSchema = s.boolean({
+  message: 'This is a constant error message.',
+});
+
+const booleanSchemaFunc = s.boolean({
   message: (value) => `Custom error: "${value}" is not a valid boolean.`,
 });
 ```
@@ -164,8 +182,14 @@ const booleanSchema = s.boolean({
 
 Creates a date schema. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const dateSchema = s.date({
+  message: 'This is a constant error message.',
+});
+
+const dateSchemaFunc = s.date({
   message: (value) => `Custom error: "${value}" is not a valid date.`,
 });
 ```
@@ -174,8 +198,20 @@ const dateSchema = s.date({
 
 Creates an object schema with the given definition. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const objectSchema = s.object(
+  {
+    key: s.string(),
+    value: s.number(),
+  },
+  {
+    message: 'This is a constant error message.',
+  },
+);
+
+const objectSchemaFunc = s.object(
   {
     key: s.string(),
     value: s.number(),
@@ -190,8 +226,14 @@ const objectSchema = s.object(
 
 Creates an array schema with the given item definition. You can optionally pass `options` to customize error messages.
 
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
 ```typescript
 const arraySchema = s.array(s.string(), {
+  message: 'This is a constant error message.',
+});
+
+const arraySchemaFunc = s.array(s.string(), {
   message: (value) => `Custom error: "${JSON.stringify(value)}" is not a valid array.`,
 });
 ```
@@ -200,10 +242,14 @@ const arraySchema = s.array(s.string(), {
 
 Creates an enum schema that validates against a predefined set of string values. You can optionally pass `options` to customize error messages.
 
-- **`values`**: An array of strings representing the allowed values for the enum. Each value must be a string.
+- **`message`**: Can be either a constant string or a function `(value) => string`.
 
 ```typescript
 const enumSchema = s.enum(['admin', 'user', 'guest'], {
+  message: 'This is a constant error message.',
+});
+
+const enumSchemaFunc = s.enum(['admin', 'user', 'guest'], {
   message: (value) => `Custom error: "${value}" is not a valid enum value.`,
 });
 ```
@@ -212,43 +258,24 @@ const enumSchema = s.enum(['admin', 'user', 'guest'], {
 
 Creates a schema that validates against multiple schemas (a union of schemas). The value must match at least one of the provided schemas. You can optionally pass `options` to customize error messages.
 
-- **`definitions`**: An array of schemas to validate against.
+- **`message`**: Can be either a constant string or a function `(value) => string`.
 
 ```typescript
 const schema = s.union([
   s.string(),
   s.number(),
   s.boolean(),
-]);
+], {
+  message: 'This is a constant error message.',
+});
 
-const validString = schema.parse('hello');
-console.log(validString);
-// 'hello'
-
-const validNumber = schema.parse(42);
-console.log(validNumber);
-// 42
-
-const validBoolean = schema.parse(true);
-console.log(validBoolean);
-// true
-
-const invalidValue = schema.safeParse({ key: 'value' });
-console.log(invalidValue.success);
-// false
-console.log(invalidValue.error.message);
-// Validation failed. Expected the value to match one of the schemas: "string" | "number" | "boolean", but received "object" with value "{"key":"value"}".
-```
-
-**Use Case**: The `union` method is useful when you need to validate data that can be of multiple types, such as a value that can be a string, number, or boolean.
-
-```typescript
-const schema = s.union(
-  [s.string(), s.number(), s.boolean()],
-  {
-    message: (value) => `Custom error: "${value}" does not match any of the union schemas.`,
-  },
-);
+const schemaFunc = s.union([
+  s.string(),
+  s.number(),
+  s.boolean(),
+], {
+  message: (value) => `Custom error: "${value}" does not match any of the union schemas.`,
+});
 ```
 
 #### `s.any()`
