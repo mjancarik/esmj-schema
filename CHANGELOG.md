@@ -1,3 +1,9 @@
+## <small>0.3.5 (2025-08-07)</small>
+
+* docs: ✏️ add other popular library for comparison section ([e223827](https://github.com/mjancarik/esmj-schema/commit/e223827))
+
+
+
 ## <small>0.3.4 (2025-08-01)</small>
 
 * fix: 🐛 options.message can be always string or function ([8a6f471](https://github.com/mjancarik/esmj-schema/commit/8a6f471))
