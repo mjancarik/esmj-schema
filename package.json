@@ -7,7 +7,12 @@
     "validation",
     "type",
     "inference",
-    "zod"
+    "zod",
+    "@sinclair/typebox",
+    "yup",
+    "superstruct",
+    "joi",
+    "arktype"
   ],
   "main": "dist/index",
   "module": "dist/index",
