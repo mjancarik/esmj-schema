@@ -21,9 +21,9 @@ npm install @esmj/schema
 
 ### Performance Highlights
 
-- **Schema Creation**: Create schemas in as little as `0.02 ms`, even for complex structures.
-- **Parsing**: Parse data with blazing-fast speeds, handling 1,000,000 iterations in under `300 ms`.
-- **Error Handling**: Efficiently manage errors with minimal performance impact, processing 1,000,000 iterations in under `400 ms`.
+- **Schema Creation**: Create schemas at up to 4 370 618 ops/s (0.23 μs latency) with @sinclair/typebox, or 736 810 ops/s (1.36 μs latency) with @esmj/schema. Superstruct and @esmj/schema are also among the fastest for schema creation.
+- **Parsing**: Parse data at up to 4 627 714 ops/s (0.22 μs latency) with @zod/mini (note: @zod/mini was observed to consume 200% CPU, while other libraries used only 100% CPU), or 3 142 587 ops/s (0.32 μs latency) with @esmj/schema. ArkType and effect/Schema also show strong parsing throughput.
+- **Error Handling**: Efficiently manage errors at up to 2 428 049 ops/s (0.41 μs latency) with @esmj/schema, or 1 386 616 ops/s (0.72 μs latency) with @zod/mini.
 
 These performance metrics make `@esmj/schema` an excellent choice for both frontend and backend applications where speed and efficiency are critical.
 
@@ -31,54 +31,64 @@ These performance metrics make `@esmj/schema` an excellent choice for both front
 
 When choosing a schema validation library, bundle size can be an important factor, especially for frontend applications where minimizing JavaScript size is critical. Here's how `@esmj/schema` compares to other popular libraries:
 
-| Library         | Bundle Size (minified + gzipped) |
-|------------------|---------------------------------|
-| `@esmj/schema`   | `~1,2 KB`                       |
-| Superstruct      | ~3.2 KB                         |
-| Yup              | ~12.2 KB                        |
-| Zod@3            | ~13 KB                          |
-| @zod/mini        | ~20,5 KB                        |
-| Joi              | ~40,4 KB                        |
-| Zod@4            | ~40,8 KB                        |
-| ArkType          | ~41,8 KB                        |
+| Library           | Bundle Size (minified + gzipped) |
+|-------------------|---------------------------------|
+| `@esmj/schema`    | `~1,2 KB`                       |
+| Superstruct       | ~3.2 KB                         |
+| @sinclair/typebox | ~11.7 KB                        |
+| Yup               | ~12.2 KB                        |
+| Zod@3             | ~13 KB                          |
+| @zod/mini         | ~20,5 KB                        |
+| Joi               | ~40,4 KB                        |
+| Zod@4             | ~40,8 KB                        |
+| ArkType           | ~41,8 KB                        |
+| Effect/Schema     | ~115.5 KB                       |
 
 ### Performance Comparison
 
+*All benchmarks were measured on Node.js v24.1.0.*
+
 #### Schema Creation Performance
 
-| Library         | 1 Schema    | 1,000 Schema     | 1,000,000 Schema     |
-|-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | `0.02 ms`   | 4.93 ms          | `1.13 s`             |
-| zod@3           | 0.08 ms     | 9.68 ms          | 8.53 s               |
-| @zod/mini       | 0.22 ms     | 39.77 ms         | 34.51 s              |
-| Yup             | 0.54 ms     | 14.03 ms         | 12.34 s              |
-| Superstruct     | 0.13 ms     | `3.67 ms`        | 1.74 s               |
-| Joi             | 0.62 ms     | 31.60 ms         | 23.06 s              |
-| ArkType         | 0.37 ms     | 54.60 ms         | Infinity             |
+| Library           | Throughput average (ops/s)      | Latency average (μs)      |
+|-------------------|-------------------------------:|-------------------------:|
+| @esmj/schema      | 736 810.12 ± 3.03%            | 1.36 ± 3.24%            |
+| Zod@3             | 112 575.50 ± 0.86%            | 8.88 ± 0.87%            |
+| @zod/mini         | 23 456.07 ± 1.26%             | 42.64 ± 1.28%           |
+| Yup               | 75 051.06 ± 4.38%             | 13.36 ± 4.41%           |
+| Superstruct       | 509 401.06 ± 0.80%            | 1.96 ± 0.80%            |
+| Joi               | 42 455.28 ± 1.27%             | 23.56 ± 1.30%           |
+| `@sinclair/typebox` | `4 370 618.49 ± 1.23%`      | `0.23 ± 1.23%`          |
+| ArkType           | 16 282.69 ± 4.14%             | 61.61 ± 4.38%           |
+| effect/Schema     | 24 919.15 ± 4.31%             | 40.31 ± 4.78%           |
 
 #### Parsing Performance
 
-| Library         | 1 Iteration | 1,000 Iterations | 1,000,000 Iterations |
-|-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | `0.05 ms`   | 0.46 ms          | 267.93 ms            |
-| zod@3           | 0.14 ms     | 1.44 ms          | 897.89 ms            |
-| @zod/mini       | 0.23 ms     | `0.42 ms`        | `199.08 ms`          |
-| Yup             | 0.30 ms     | 9.49 ms          | 8.69 s               |
-| Superstruct     | 0.08 ms     | 4.18 ms          | 3.71 s               |
-| Joi             | 0.33 ms     | 3.35 ms          | 2.69 s               |
-| ArkType         | 0.08 ms     | 0.70 ms          | 576,80 ms            |
+| Library           | Throughput average (ops/s)      | Latency average (μs)      |
+|-------------------|-------------------------------:|-------------------------:|
+| @esmj/schema      | 3 142 587.31 ± 0.97%          | 0.32 ± 0.99%            |
+| zod@3             | 1 018 777.24 ± 0.64%          | 0.98 ± 0.65%            |
+| `@zod/mini`       | `4 627 714.90 ± 2.23%`        | `0.22 ± 2.36%`          |
+| Yup               | 108 361.49 ± 0.50%            | 9.23 ± 0.51%            |
+| Superstruct       | 252 904.42 ± 2.20%            | 3.96 ± 2.44%            |
+| Joi               | 346 094.49 ± 0.65%            | 2.89 ± 0.65%            |
+| @sinclair/typebox | 228 711.62 ± 2.03%            | 4.38 ± 2.23%            |
+| ArkType           | 1 677 066.00 ± 0.58%          | 0.60 ± 0.59%            |
+| effect/Schema     | 1 060 056.14 ± 0.61%          | 0.94 ± 0.61%            |
 
 #### Error Handling Performance
 
-| Library         | 1 Iteration | 1,000 Iterations | 1,000,000 Iterations |
-|-----------------|-------------|------------------|----------------------|
-| `@esmj/schema`  | `0.03 ms`   | `0.59 ms`        | `365.32 ms`          |
-| zod3            | 0.05 ms     | 2.09 ms          | 1.26 s               |
-| @zod/mini       | 0.07 ms     | 0.99 ms          | 545.12 ms            |
-| Yup             | 0.27 ms     | 19.28 ms         | 18.87 s              |
-| Superstruct     | 0.04 ms     | 8.62 ms          | 6.24 s               |
-| Joi             | 0.15 ms     | 4.13 ms          | 2.57 s               |
-| ArkType         | 0.07 ms     | 3.78 ms          | 2.87 s               |
+| Library           | Throughput average (ops/s)      | Latency average (μs)      |
+|-------------------|-------------------------------:|-------------------------:|
+| `@esmj/schema`    | `2 428 049.34 ± 0.54%`        | `0.41 ± 0.53%`          |
+| zod@3             | 641 504.22 ± 3.67%            | 1.57 ± 4.38%            |
+| @zod/mini         | 1 386 616.61 ± 0.60%          | 0.72 ± 0.60%            |
+| Yup               | 98 904.30 ± 0.61%             | 10.11 ± 0.61%           |
+| Superstruct       | 122 782.09 ± 1.03%            | 8.15 ± 1.03%            |
+| Joi               | 271 301.11 ± 1.58%            | 3.69 ± 1.59%            |
+| @sinclair/typebox | 228 734.49 ± 0.55%            | 4.37 ± 0.56%            |
+| ArkType           | 258 685.33 ± 1.23%            | 3.87 ± 1.23%            |
+| effect/Schema     | 165 753.69 ± 0.99%            | 6.03 ± 1.00%            |
 
 **Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
 

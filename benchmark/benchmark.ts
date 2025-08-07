@@ -1,46 +1,91 @@
 import { performance } from 'node:perf_hooks';
+import { Type } from '@sinclair/typebox'; // Import TypeBox
+import { Value } from '@sinclair/typebox/value';
 import { z as zodMini } from '@zod/mini'; // Import Zod Mini
 import { type } from 'arktype';
+import { Schema } from 'effect';
 import Joi from 'joi'; // Import Joi
 import superStruct from 'superstruct'; // Import Superstruct
 import * as yup from 'yup'; // Import Yup
-import { z } from 'zod'; // Import Zod
+import { late, z } from 'zod'; // Import Zod
 import { s } from '../src/index.ts'; // Import @esmj/schema
 
-function formatTime(time: number) {
-  // Convert time to milliseconds
-  if (time < 1000) {
-    return `${time.toFixed(2)} ms`;
+function fixLength(string: string, length: number) {
+  if (string.length >= length) {
+    return string;
   }
-  // Convert to seconds
-  const seconds = time / 1000;
-  return `${seconds.toFixed(2)} s`;
+  return ' '.repeat(length - string.length) + string;
+}
+
+function formatNumber(num: number) {
+  return `${num
+    .toFixed(2)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
+}
+
+function makeStatistics(results: number[]) {
+  const sum = results.reduce((a, b) => a + b, 0);
+  const average = sum / results.length;
+  const min = Math.min(...results);
+  const max = Math.max(...results);
+  const divergence =
+    results
+      .map((result) => {
+        return Math.abs(result - average);
+      })
+      .reduce((a, b) => a + b, 0) / results.length;
+  return {
+    sum,
+    min,
+    max,
+    average,
+    divergence,
+    toString() {
+      return `SUM: ${formatNumber(sum)} | MIN: ${formatNumber(min)} | MAX: ${formatNumber(max)} | AVG: ${formatNumber(average)} ± ${((divergence / average) * 100).toFixed(2)}%`;
+    },
+  };
 }
 
 function benchmark(label: string, fn: () => void) {
   const REPEAT = 10;
-  let sum = 0;
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
+  const resultsOperation: number[] = [];
+  const resultsLatency: number[] = [];
+  let time = 0;
+
   for (let i = 0; i < REPEAT; i++) {
     const start = performance.now();
-    fn();
+    let operation = 0;
+
+    while (true) {
+      fn();
+      operation += 1;
+      if (start + 1000 < performance.now()) {
+        break;
+      }
+    }
+
     const end = performance.now();
-
-    const time = end - start;
-
-    min = Math.min(min, time);
-    max = Math.max(max, time);
-    sum += time;
+    const interval = end - start;
+    time += interval;
+    const operationPerSecond = operation / (interval / 1000);
+    const latencecy = interval / operation;
+    resultsOperation.push(operationPerSecond);
+    resultsLatency.push(latencecy);
+    global?.gc?.();
   }
 
-  const average = sum / REPEAT;
+  const operation = makeStatistics(resultsOperation);
+  const latency = makeStatistics(resultsLatency);
 
   console.log(
-    `${label} took an average of ${formatTime(average)} over ${REPEAT} iterations. Min: ${formatTime(min)}, Max: ${formatTime(max)}`,
+    `${label} results: ${operation.toString()} | ${latency.toString()}`,
   );
 
-  return formatTime(average);
+  return {
+    'Throughput average (ops/s)': `${fixLength(formatNumber(operation.average), 18)} ± ${fixLength(((operation.divergence / operation.average) * 100).toFixed(2), 5)}%`,
+    'Latency average (μs)': `${fixLength(formatNumber(latency.average * 1_000), 12)} ± ${fixLength(((latency.divergence / latency.average) * 100).toFixed(2), 5)}%`,
+  };
 }
 
 function scenarioParseSchema(testData) {
@@ -134,509 +179,200 @@ function scenarioParseSchema(testData) {
     tags: 'string[]',
   });
 
+  const typeboxSchema = Type.Object({
+    username: Type.String(),
+    password: Type.String(),
+    age: Type.Optional(Type.Number()),
+    address: Type.Object({
+      street: Type.Optional(Type.String()),
+      city: Type.Optional(Type.String()),
+      date: Type.Optional(Type.Date()), // Optional date field
+    }),
+    tags: Type.Array(Type.String()),
+  });
+
+  const effectSchema = Schema.Struct({
+    username: Schema.String,
+    password: Schema.String,
+    age: Schema.optional(Schema.Number),
+    address: Schema.Struct({
+      street: Schema.optional(Schema.String),
+      city: Schema.optional(Schema.String),
+      date: Schema.optional(Schema.ValidDateFromSelf),
+    }),
+    tags: Schema.Array(Schema.String),
+  });
+
   const result = {} as Record<string, object>;
 
-  const esmjSchemaResult = {};
-  esmjSchemaResult['1'] = benchmark('@esmj/schema 1', () => {
-    for (let i = 0; i < 1; i++) {
-      esmjSchema.safeParse(testData);
-    }
+  result['@esmj/schema'] = benchmark('@esmj/schema', () => {
+    esmjSchema.safeParse(testData);
   });
 
-  esmjSchemaResult['1_000'] = benchmark('@esmj/schema 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      esmjSchema.safeParse(testData);
-    }
+  result['zod@3'] = benchmark('zod', () => {
+    zodSchema.safeParse(testData);
   });
 
-  esmjSchemaResult['1_000_000'] = benchmark('@esmj/schema 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      esmjSchema.safeParse(testData);
-    }
-  });
-  result.esmjSchema = esmjSchemaResult;
-
-  const zod = {};
-  zod['1'] = benchmark('zod 1', () => {
-    for (let i = 0; i < 1; i++) {
-      zodSchema.safeParse(testData);
-    }
+  result['@zod/mini'] = benchmark('@zod/mini', () => {
+    zodMiniSchema.safeParse(testData);
   });
 
-  zod['1_000'] = benchmark('zod 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      zodSchema.safeParse(testData);
-    }
+  result.Yup = benchmark('Yup', () => {
+    yupSchema.isValidSync(testData);
   });
 
-  zod['1_000_000'] = benchmark('zod 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      zodSchema.safeParse(testData);
-    }
-  });
-  result.zod = zod;
-
-  const zodMiniResult = {};
-  zodMiniResult['1'] = benchmark('@zod/mini 1', () => {
-    for (let i = 0; i < 1; i++) {
-      zodMiniSchema.safeParse(testData);
-    }
+  result.Superstruct = benchmark('Superstruct', () => {
+    superStruct.is(testData, superStructSchema);
   });
 
-  zodMiniResult['1_000'] = benchmark('@zod/mini 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      zodMiniSchema.safeParse(testData);
-    }
+  result.Joi = benchmark('Joi', () => {
+    try {
+      joiSchema.validate(testData);
+    } catch (e) {}
   });
 
-  zodMiniResult['1_000_000'] = benchmark('@zod/mini 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      zodMiniSchema.safeParse(testData);
-    }
-  });
-  result.zodMini = zodMiniResult;
-
-  const yupResult = {};
-  yupResult['1'] = benchmark('yup 1', () => {
-    for (let i = 0; i < 1; i++) {
-      yupSchema.isValidSync(testData);
-    }
+  result['@sinclair/typebox'] = benchmark('@sinclair/typebox', () => {
+    Value.Parse(typeboxSchema, testData);
   });
 
-  yupResult['1_000'] = benchmark('yup 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      yupSchema.isValidSync(testData);
-    }
+  result.ArkType = benchmark('ArkType', () => {
+    arktypeSchema(testData);
   });
 
-  yupResult['1_000_000'] = benchmark('yup 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      yupSchema.isValidSync(testData);
-    }
+  result['effect/Schema'] = benchmark('effect/Schema', () => {
+    Schema.encodeEither(effectSchema)(testData);
   });
-  result.yup = yupResult;
-
-  const superStructResult = {};
-  superStructResult['1'] = benchmark('superStruct 1', () => {
-    for (let i = 0; i < 1; i++) {
-      superStruct.is(testData, superStructSchema);
-    }
-  });
-
-  superStructResult['1_000'] = benchmark('superStruct 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      superStruct.is(testData, superStructSchema);
-    }
-  });
-
-  superStructResult['1_000_000'] = benchmark('superStruct 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      superStruct.is(testData, superStructSchema);
-    }
-  });
-  result.superStruct = superStructResult;
-
-  const joiResult = {};
-  joiResult['1'] = benchmark('joi 1', () => {
-    for (let i = 0; i < 1; i++) {
-      try {
-        joiSchema.validate(testData);
-      } catch (e) {}
-    }
-  });
-
-  joiResult['1_000'] = benchmark('joi 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      try {
-        joiSchema.validate(testData);
-      } catch (e) {}
-    }
-  });
-
-  joiResult['1_000_000'] = benchmark('joi 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      try {
-        joiSchema.validate(testData);
-      } catch (e) {}
-    }
-  });
-  result.joi = joiResult;
-
-  const arkTypeResult = {};
-  arkTypeResult['1'] = benchmark('ArkType 1', () => {
-    for (let i = 0; i < 1; i++) {
-      arktypeSchema(testData);
-    }
-  });
-
-  arkTypeResult['1_000'] = benchmark('ArkType 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      arktypeSchema(testData);
-    }
-  });
-
-  arkTypeResult['1_000_000'] = benchmark('ArkType 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      arktypeSchema(testData);
-    }
-  });
-  result.arkType = arkTypeResult;
 
   return result;
 }
 
 function scenarioCreatingSchema() {
   const result = {} as Record<string, object>;
-  const esmjSchemaResult = {};
-  esmjSchemaResult['1'] = benchmark('@esmj/schema 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const esmjSchema = s.object({
-        username: s.string(),
-        password: s.string(),
-        age: s.number().optional(),
-        address: s.object({
-          street: s.string().nullish(),
-          city: s.string().nullable(),
-          date: s.date().optional(), // Optional date field
-        }),
-        tags: s.array(s.string()),
-      });
-    }
+
+  result['@esmj/schema'] = benchmark('@esmj/schema', () => {
+    s.object({
+      username: s.string(),
+      password: s.string(),
+      age: s.number().optional(),
+      address: s.object({
+        street: s.string().nullish(),
+        city: s.string().nullable(),
+        date: s.date().optional(), // Optional date field
+      }),
+      tags: s.array(s.string()),
+    });
   });
 
-  esmjSchemaResult['1_000'] = benchmark('@esmj/schema 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const esmjSchema = s.object({
-        username: s.string(),
-        password: s.string(),
-        age: s.number().optional(),
-        address: s.object({
-          street: s.string().nullish(),
-          city: s.string().nullable(),
-          date: s.date().optional(), // Optional date field
-        }),
-        tags: s.array(s.string()),
-      });
-    }
+  result['zod@3'] = benchmark('zod', () => {
+    z.object({
+      username: z.string(),
+      password: z.string(),
+      age: z.number().optional(),
+      address: z.object({
+        street: z.string().nullish(),
+        city: z.string().nullable(),
+        date: z.date().optional(), // Optional date field
+      }),
+      tags: z.array(z.string()),
+    });
   });
 
-  esmjSchemaResult['1_000_000'] = benchmark('@esmj/schema 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const esmjSchema = s.object({
-        username: s.string(),
-        password: s.string(),
-        age: s.number().optional(),
-        address: s.object({
-          street: s.string().nullish(),
-          city: s.string().nullable(),
-          date: s.date().optional(), // Optional date field
-        }),
-        tags: s.array(s.string()),
-      });
-    }
+  result['@zod/mini'] = benchmark('@zod/mini', () => {
+    zodMini.object({
+      username: zodMini.string(),
+      password: zodMini.string(),
+      age: zodMini.optional(zodMini.number()),
+      address: zodMini.object({
+        street: zodMini.nullish(zodMini.string()),
+        city: zodMini.nullable(zodMini.string()),
+        date: zodMini.optional(zodMini.date()), // Optional date field
+      }),
+      tags: zodMini.array(zodMini.string()),
+    });
   });
-  result.esmjSchema = esmjSchemaResult;
-
-  const zod = {};
-  zod['1'] = benchmark('zod 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const zodSchema = z.object({
-        username: z.string(),
-        password: z.string(),
-        age: z.number().optional(),
-        address: z.object({
-          street: z.string().nullish(),
-          city: z.string().nullable(),
-          date: z.date().optional(), // Optional date field
-        }),
-        tags: z.array(z.string()),
-      });
-    }
+  result.Yup = benchmark('Yup', () => {
+    yup.object({
+      username: yup.string().required(),
+      password: yup.string().required(),
+      age: yup.number().optional(),
+      address: yup.object({
+        street: yup.string().nullable(),
+        city: yup.string().nullable(),
+        date: yup.date().optional(), // Optional date field
+      }),
+      tags: yup.array().of(yup.string().required()).required(),
+    });
   });
 
-  zod['1_000'] = benchmark('zod 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const zodSchema = z.object({
-        username: z.string(),
-        password: z.string(),
-        age: z.number().optional(),
-        address: z.object({
-          street: z.string().nullish(),
-          city: z.string().nullable(),
-          date: z.date().optional(), // Optional date field
-        }),
-        tags: z.array(z.string()),
-      });
-    }
+  result.Superstruct = benchmark('Superstruct', () => {
+    superStruct.object({
+      username: superStruct.string(),
+      password: superStruct.string(),
+      age: superStruct.number(),
+      address: superStruct.object({
+        street: superStruct.optional(superStruct.string()),
+        city: superStruct.optional(superStruct.string()),
+        date: superStruct.optional(superStruct.date()), // Optional date field
+      }),
+      tags: superStruct.array(superStruct.string()),
+    });
   });
 
-  zod['1_000_000'] = benchmark('zod 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const zodSchema = z.object({
-        username: z.string(),
-        password: z.string(),
-        age: z.number().optional(),
-        address: z.object({
-          street: z.string().nullish(),
-          city: z.string().nullable(),
-          date: z.date().optional(), // Optional date field
-        }),
-        tags: z.array(z.string()),
-      });
-    }
-  });
-  result.zod = zod;
-
-  const zodMiniResult = {};
-  zodMiniResult['1'] = benchmark('@zod/mini 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const zodMiniSchema = zodMini.object({
-        username: zodMini.string(),
-        password: zodMini.string(),
-        age: zodMini.optional(zodMini.number()),
-        address: zodMini.object({
-          street: zodMini.nullish(zodMini.string()),
-          city: zodMini.nullable(zodMini.string()),
-          date: zodMini.optional(zodMini.date()), // Optional date field
-        }),
-        tags: zodMini.array(zodMini.string()),
-      });
-    }
+  result.Joi = benchmark('Joi', () => {
+    Joi.object({
+      username: Joi.string().required(),
+      password: Joi.string().required(),
+      age: Joi.number().required(),
+      address: Joi.object({
+        street: Joi.string().optional(), // Allow null for street
+        city: Joi.string().optional(),
+        date: Joi.date().optional(), // Optional date field
+      }),
+      tags: Joi.array().items(Joi.string().required()).required(),
+    });
   });
 
-  zodMiniResult['1_000'] = benchmark('@zod/mini 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const zodMiniSchema = zodMini.object({
-        username: zodMini.string(),
-        password: zodMini.string(),
-        age: zodMini.optional(zodMini.number()),
-        address: zodMini.object({
-          street: zodMini.nullish(zodMini.string()),
-          city: zodMini.nullable(zodMini.string()),
-          date: zodMini.optional(zodMini.date()), // Optional date field
-        }),
-        tags: zodMini.array(zodMini.string()),
-      });
-    }
+  result['@sinclair/typebox'] = benchmark('@sinclair/typebox', () => {
+    Type.Object({
+      username: Type.String(),
+      password: Type.String(),
+      age: Type.Optional(Type.Number()),
+      address: Type.Object({
+        street: Type.Optional(Type.String()),
+        city: Type.Optional(Type.String()),
+        date: Type.Optional(Type.Date()), // Optional date field
+      }),
+      tags: Type.Array(Type.String()),
+    });
   });
 
-  zodMiniResult['1_000_000'] = benchmark('@zod/mini 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const zodMiniSchema = zodMini.object({
-        username: zodMini.string(),
-        password: zodMini.string(),
-        age: zodMini.optional(zodMini.number()),
-        address: zodMini.object({
-          street: zodMini.nullish(zodMini.string()),
-          city: zodMini.nullable(zodMini.string()),
-          date: zodMini.optional(zodMini.date()), // Optional date field
-        }),
-        tags: zodMini.array(zodMini.string()),
-      });
-    }
-  });
-  result.zodMini = zodMiniResult;
-
-  const yupResult = {};
-  yupResult['1'] = benchmark('yup 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const yupSchema = yup.object({
-        username: yup.string().required(),
-        password: yup.string().required(),
-        age: yup.number().optional(),
-        address: yup.object({
-          street: yup.string().nullable(),
-          city: yup.string().nullable(),
-          date: yup.date().optional(), // Optional date field
-        }),
-        tags: yup.array().of(yup.string().required()).required(),
-      });
-    }
+  result.ArkType = benchmark('ArkType', () => {
+    type({
+      username: 'string',
+      password: 'string',
+      age: 'number?',
+      address: {
+        'street?': 'string',
+        'city?': 'string',
+        'date?': 'Date',
+      },
+      tags: 'string[]',
+    });
   });
 
-  yupResult['1_000'] = benchmark('yup 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const yupSchema = yup.object({
-        username: yup.string().required(),
-        password: yup.string().required(),
-        age: yup.number().optional(),
-        address: yup.object({
-          street: yup.string().nullable(),
-          city: yup.string().nullable(),
-          date: yup.date().optional(), // Optional date field
-        }),
-        tags: yup.array().of(yup.string().required()).required(),
-      });
-    }
+  result['effect/Schema'] = benchmark('effect/Schema', () => {
+    Schema.Struct({
+      username: Schema.String,
+      password: Schema.String,
+      age: Schema.optional(Schema.Number),
+      address: Schema.Struct({
+        street: Schema.optional(Schema.String),
+        city: Schema.optional(Schema.String),
+        date: Schema.optional(Schema.ValidDateFromSelf),
+      }),
+      tags: Schema.Array(Schema.String),
+    });
   });
-
-  yupResult['1_000_000'] = benchmark('yup 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const yupSchema = yup.object({
-        username: yup.string().required(),
-        password: yup.string().required(),
-        age: yup.number().optional(),
-        address: yup.object({
-          street: yup.string().nullable(),
-          city: yup.string().nullable(),
-          date: yup.date().optional(), // Optional date field
-        }),
-        tags: yup.array().of(yup.string().required()).required(),
-      });
-    }
-  });
-  result.yup = yupResult;
-
-  const superStructResult = {};
-  superStructResult['1'] = benchmark('superStruct 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const superStructSchema = superStruct.object({
-        username: superStruct.string(),
-        password: superStruct.string(),
-        age: superStruct.number(),
-        address: superStruct.object({
-          street: superStruct.optional(superStruct.string()),
-          city: superStruct.optional(superStruct.string()),
-          date: superStruct.optional(superStruct.date()), // Optional date field
-        }),
-        tags: superStruct.array(superStruct.string()),
-      });
-    }
-  });
-
-  superStructResult['1_000'] = benchmark('superStruct 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const superStructSchema = superStruct.object({
-        username: superStruct.string(),
-        password: superStruct.string(),
-        age: superStruct.number(),
-        address: superStruct.object({
-          street: superStruct.optional(superStruct.string()),
-          city: superStruct.optional(superStruct.string()),
-          date: superStruct.optional(superStruct.date()), // Optional date field
-        }),
-        tags: superStruct.array(superStruct.string()),
-      });
-    }
-  });
-
-  superStructResult['1_000_000'] = benchmark('superStruct 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const superStructSchema = superStruct.object({
-        username: superStruct.string(),
-        password: superStruct.string(),
-        age: superStruct.number(),
-        address: superStruct.object({
-          street: superStruct.optional(superStruct.string()),
-          city: superStruct.optional(superStruct.string()),
-          date: superStruct.optional(superStruct.date()), // Optional date field
-        }),
-        tags: superStruct.array(superStruct.string()),
-      });
-    }
-  });
-  result.superStruct = superStructResult;
-
-  const joiResult = {};
-  joiResult['1'] = benchmark('joi 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const joiSchema = Joi.object({
-        username: Joi.string().required(),
-        password: Joi.string().required(),
-        age: Joi.number().required(),
-        address: Joi.object({
-          street: Joi.string().optional(), // Allow null for street
-          city: Joi.string().optional(),
-          date: Joi.date().optional(), // Optional date field
-        }),
-        tags: Joi.array().items(Joi.string().required()).required(),
-      });
-    }
-  });
-
-  joiResult['1_000'] = benchmark('joi 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const joiSchema = Joi.object({
-        username: Joi.string().required(),
-        password: Joi.string().required(),
-        age: Joi.number().required(),
-        address: Joi.object({
-          street: Joi.string().optional(), // Allow null for street
-          city: Joi.string().optional(),
-          date: Joi.date().optional(), // Optional date field
-        }),
-        tags: Joi.array().items(Joi.string().required()).required(),
-      });
-    }
-  });
-
-  joiResult['1_000_000'] = benchmark('joi 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const joiSchema = Joi.object({
-        username: Joi.string().required(),
-        password: Joi.string().required(),
-        age: Joi.number().required(),
-        address: Joi.object({
-          street: Joi.string().optional(), // Allow null for street
-          city: Joi.string().optional(),
-          date: Joi.date().optional(), // Optional date field
-        }),
-        tags: Joi.array().items(Joi.string().required()).required(),
-      });
-    }
-  });
-  result.joi = joiResult;
-
-  const arkTypeResult = {};
-  arkTypeResult['1'] = benchmark('ArkType 1', () => {
-    for (let i = 0; i < 1; i++) {
-      const arktypeSchema = type({
-        username: 'string',
-        password: 'string',
-        age: 'number?',
-        address: {
-          'street?': 'string',
-          'city?': 'string',
-          'date?': 'Date',
-        },
-        tags: 'string[]',
-      });
-    }
-  });
-
-  arkTypeResult['1_000'] = benchmark('ArkType 1_000', () => {
-    for (let i = 0; i < 1_000; i++) {
-      const arktypeSchema = type({
-        username: 'string',
-        password: 'string',
-        age: 'number?',
-        address: {
-          'street?': 'string',
-          'city?': 'string',
-          'date?': 'Date',
-        },
-        tags: 'string[]',
-      });
-    }
-  });
-
-  arkTypeResult['1_000_000'] = benchmark('ArkType 1_000_000', () => {
-    for (let i = 0; i < 1_000_000; i++) {
-      const arktypeSchema = type({
-        username: 'string',
-        password: 'string',
-        age: 'number?',
-        address: {
-          'street?': 'string',
-          'city?': 'string',
-          'date?': 'Date',
-        },
-        tags: 'string[]',
-      });
-    }
-  });
-  result.arkTypeResult = arkTypeResult;
-
   return result;
 }
 
@@ -661,8 +397,24 @@ const testDataBad = {
     city: 'New York',
     date: new Date(),
   },
+  tags: ['developer', 'typescript', 123], // Invalid tag type
 };
 
-console.table(scenarioCreatingSchema());
-console.table(scenarioParseSchema(testDataGood));
-console.table(scenarioParseSchema(testDataBad));
+setTimeout(() => {
+  global?.gc?.();
+  const createScenarioResult = scenarioCreatingSchema();
+  console.log('Creating schema benchmark results:');
+  console.table(createScenarioResult);
+
+  global?.gc?.();
+  const parseScenarioResultWithGoodData = scenarioParseSchema(testDataGood);
+  console.log('Parsing schema with good data benchmark results:');
+  console.table(parseScenarioResultWithGoodData);
+
+  global?.gc?.();
+  const parseScenarioResultWithBadData = scenarioParseSchema(testDataBad);
+  console.log('Parsing schema with bad data benchmark results:');
+  console.table(parseScenarioResultWithBadData);
+
+  console.log('Benchmarking completed.');
+}, 1000);
