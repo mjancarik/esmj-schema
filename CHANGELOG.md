@@ -1,3 +1,9 @@
+## <small>0.3.6 (2025-08-08)</small>
+
+* chore: 🤖 add more keywords ([9003cda](https://github.com/mjancarik/esmj-schema/commit/9003cda))
+
+
+
 ## <small>0.3.5 (2025-08-07)</small>
 
 * docs: ✏️ add other popular library for comparison section ([e223827](https://github.com/mjancarik/esmj-schema/commit/e223827))
