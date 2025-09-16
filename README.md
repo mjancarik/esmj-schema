@@ -12,12 +12,13 @@ npm install @esmj/schema
 
 `@esmj/schema` is a lightweight and flexible schema validation library designed for developers who need a simple yet powerful way to validate and transform data. Here are some reasons to choose this package:
 
-1. **TypeScript First**: Built with TypeScript in mind, it provides strong type inference and ensures type safety throughout your codebase.
-2. **Extensibility**: Easily extend the library with custom logic using the `extend` function.
-3. **Rich Features**: Includes advanced features like preprocessing, transformations, piping, and refinements, which are not always available in similar libraries.
-4. **Lightweight**: None dependencies and a small footprint make it ideal for projects where performance and simplicity are key.
-5. **Customizable**: Offers fine-grained control over validation and error handling.
-6. **Performance**: `@esmj/schema` is optimized for speed, making it one of the fastest schema validation libraries available. Whether you're creating schemas, parsing data, or handling errors, `@esmj/schema` consistently outperforms many popular alternatives. Its minimalistic design ensures low overhead, even in high-performance applications.
+1. **TypeScript First**: Built with TypeScript in mind, it provides strong type inference—even for deeply nested and complex schemas.
+2. **Extensibility**: Easily extend the library with custom logic, refinements, and preprocessors using the `extend` function.
+3. **Rich Features**: Includes advanced features like preprocessing, transformations, piping, refinements, and robust error collection (`abortEarly`).
+4. **Actionable Error Handling**: Collect all validation errors at once for better debugging and user experience, with clear and consistent error structures (`error` and `errors`).
+5. **Lightweight**: No dependencies and a small footprint make it ideal for projects where performance and simplicity are key.
+6. **Customizable**: Offers fine-grained control over validation, error handling, and schema composition.
+7. **Performance**: Optimized for speed, making it one of the fastest schema validation libraries available.
 
 ### Performance Highlights
 
@@ -306,7 +307,7 @@ const preprocessSchema = s.preprocess((value) => new Date(value), s.date());
 
 ### Schema Methods
 
-#### `parse(value)`
+#### `parse(value, parseOptions?)`
 
 Parses the given value according to the schema.
 
@@ -314,7 +315,7 @@ Parses the given value according to the schema.
 const result = stringSchema.parse('hello');
 ```
 
-#### `safeParse(value)`
+#### `safeParse(value, parseOptions?)`
 
 Safely parses the given value according to the schema, returning a success or error result.
 
@@ -324,6 +325,10 @@ const result = stringSchema.safeParse('hello');
 
 const errorResult = stringSchema.safeParse(123); 
 // { success: false, error: { message: 'The value "123" must be type of string but is type of "number".' } }
+
+// Collect all errors (not just the first)
+const allErrorsResult = stringSchema.safeParse(123, { abortEarly: false });
+console.log(allErrorsResult.errors); // Array of all errors
 ```
 
 **Note:** The `error` returned by `safeParse` is not a native `Error` instance. Instead, it is a plain object with the following structure:
@@ -395,6 +400,69 @@ Adds a refinement to the schema with a custom validation function and error mess
 const refinedSchema = s.string().refine((val) => val.length <= 255, {
   message: "String can't be more than 255 characters",
 });
+```
+
+#### Error Collection with `abortEarly` Option
+
+Both `parse` and `safeParse` accept an optional second argument:
+`parseOptions: { abortEarly?: boolean }`
+
+- **`abortEarly`** (default: `true`):
+  If `true`, validation stops at the first error (previous behavior).
+  If `false`, all validation errors are collected and returned in the `errors` array.
+
+**Example:**
+
+```typescript
+const schema = s.object({
+  name: s.string(),
+  age: s.number(),
+  email: s.string()
+});
+
+// Default behavior (abortEarly: true)
+const result1 = schema.safeParse({
+  name: 123,
+  age: 'not a number',
+  email: 42
+});
+console.log(result1.success); // false
+console.log(result1.errors.length); // 1
+
+// Collect all errors (abortEarly: false)
+const result2 = schema.safeParse({
+  name: 123,
+  age: 'not a number',
+  email: 42
+}, { abortEarly: false });
+console.log(result2.success); // false
+console.log(result2.errors.length); // 3
+```
+
+**Error Result Structure:**
+
+- `error`: The first error encountered (for compatibility)
+- `errors`: Array of all errors (when `abortEarly: false`)
+
+**Note:**  
+The `abortEarly` option is propagated through nested schemas, arrays, unions, and refinements.  
+This means you get all errors from deeply nested structures when using `{ abortEarly: false }`.
+
+**Example Output:**
+
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Error parsing key \"name\": The value \"123\" must be type of string but is type of \"number\".",
+    "cause": { "key": "name" }
+  },
+  "errors": [
+    { "message": "Error parsing key \"name\": ...", "cause": { "key": "name" } },
+    { "message": "Error parsing key \"age\": ...", "cause": { "key": "age" } },
+    { "message": "Error parsing key \"email\": ...", "cause": { "key": "email" } }
+  ]
+}
 ```
 
 ### Extending Schemas

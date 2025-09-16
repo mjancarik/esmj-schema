@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 type ErrorStructure = {
   message: string;
   cause?: {
@@ -13,16 +15,28 @@ type Valid<Output> = {
 type Invalid = {
   success: false;
   error: ErrorStructure;
+  errors?: ErrorStructure[];
 };
 
 type InternalParseOutput<Output> = Valid<Output> | Invalid;
 
+interface ParseOptions {
+  abortEarly?: boolean;
+}
+
 // @TODO Partial<Input> should be used only for optional schema keys
 export interface SchemaInterface<Input, Output> {
   _getType(): string;
-  _parse(value: Input | Partial<Input>): InternalParseOutput<Output>;
-  parse(value: Input | Partial<Input>): Output;
-  safeParse(value: Input | Partial<Input>): InternalParseOutput<Output>;
+  _getDescription(): string;
+  _parse(
+    value: Input | Partial<Input>,
+    options?: ParseOptions,
+  ): InternalParseOutput<Output>;
+  parse(value: Input | Partial<Input>, options?: ParseOptions): Output;
+  safeParse(
+    value: Input | Partial<Input>,
+    options?: ParseOptions,
+  ): InternalParseOutput<Output>;
   optional(): SchemaInterface<Input, Partial<Output> | undefined>;
   transform<NewOutput>(
     callback: (value: Input) => NewOutput,
@@ -122,6 +136,47 @@ interface CreateSchemaInterfaceOptions {
 }
 export type SchemaInterfaceOptions = Omit<CreateSchemaInterfaceOptions, 'type'>;
 
+const defaultParseOptions: ParseOptions = {
+  abortEarly: true,
+};
+
+function formatError(
+  error: ErrorStructure,
+  parentKey?: string | number,
+): ErrorStructure {
+  if (!parentKey) return error;
+
+  const errorKey = error?.cause?.key
+    ? `${parentKey}.${error.cause.key}`
+    : `${parentKey}`;
+
+  return {
+    message: `Error parsing key "${errorKey}": ${error.message}`,
+    cause: { key: errorKey },
+  };
+}
+
+function propagateNestedErrors(
+  item: Invalid,
+  errors: ErrorStructure[],
+  key: string | number,
+): void {
+  if (!item.errors || item.errors.length === 0) return;
+
+  item.errors.forEach((err) => {
+    const formattedError = formatError(err, key);
+
+    errors.push(formattedError);
+  });
+}
+
+function resolveParseOptions(parseOptions?: ParseOptions): ParseOptions {
+  return {
+    ...defaultParseOptions,
+    ...parseOptions,
+  };
+}
+
 const stringValidation = (value) =>
   typeof value === 'string' || value instanceof String;
 const numberValidation = (value) =>
@@ -148,34 +203,62 @@ export const s = {
       type: 'object',
     });
 
-    hookOriginal(schema, '_parse', (originalParse, ...args) => {
-      const value = originalParse(...args);
+    // Add a more detailed description for object schemas
+    schema._getDescription = () => {
+      const fieldDescriptions = Object.entries(definition)
+        .map(
+          ([key, schema]) =>
+            `${key}: ${(schema as SchemaInterface<unknown, unknown>)._getDescription()}`,
+        )
+        .join(', ');
+      return `object({ ${fieldDescriptions} })`;
+    };
+
+    hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+      const value = originalParse(data, parseOptions);
+      const { abortEarly } = resolveParseOptions(
+        parseOptions as ParseOptions | undefined,
+      );
 
       if (value.success === false) {
         return value;
       }
 
       const acc = {} as Record<string, unknown>;
+      const errors: ErrorStructure[] = [];
+
       for (const key in definition) {
         let item = (
           definition[key]._parse as (
             value: unknown,
+            parseOptions?: ParseOptions,
           ) => InternalParseOutput<unknown>
-        )(value.data[key]);
+        )(value.data[key], parseOptions as ParseOptions | undefined);
 
         if (item.success) {
           acc[key] = item.data;
         } else {
           item = item as Invalid;
-          const errorKey = item?.error?.cause?.key
-            ? `${key}.${item?.error?.cause?.key}`
-            : key;
 
-          item.error.message = `Error parsing key "${errorKey}": ${item.error.message}`;
-          item.error.cause = { key: errorKey };
+          if (abortEarly !== false) {
+            const formattedError = formatError(item.error, key);
+            return {
+              success: false,
+              error: formattedError,
+              errors: [formattedError],
+            };
+          }
 
-          return item;
+          propagateNestedErrors(item, errors, key);
         }
+      }
+
+      if (errors.length > 0) {
+        return {
+          success: false,
+          error: errors[0], // First error as the main error
+          errors,
+        };
       }
 
       return {
@@ -231,6 +314,11 @@ export const s = {
       },
     ) as EnumSchemaInterface<(typeof definition)[number]>;
 
+    // Add a more detailed description for enum schemas
+    schema._getDescription = () => {
+      return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
+    };
+
     return schema as EnumSchemaInterface<(typeof definition)[number]>;
   },
   array<T extends SchemaType>(
@@ -245,32 +333,57 @@ export const s = {
       type: 'array',
     });
 
-    hookOriginal(schema, '_parse', (originalParse, ...args) => {
-      const value = originalParse(...args);
+    // Add a more detailed description for array schemas
+    schema._getDescription = () => {
+      return `array(${(definition as SchemaInterface<unknown, unknown>)._getDescription()})`;
+    };
+
+    hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+      const value = originalParse(data, parseOptions);
+      const { abortEarly } = resolveParseOptions(
+        parseOptions as ParseOptions | undefined,
+      );
 
       if (value.success === false) {
         return value;
       }
 
       const acc = [] as Array<ReturnType<T['parse']>>;
+      const errors: ErrorStructure[] = [];
+
       for (let index = 0; index < value.data.length; index++) {
         let item = (
-          definition._parse as (value: unknown) => InternalParseOutput<unknown>
-        )(value.data[index]);
+          definition._parse as (
+            value: unknown,
+            parseOptions?: ParseOptions,
+          ) => InternalParseOutput<unknown>
+        )(value.data[index], parseOptions as ParseOptions | undefined);
 
         if (item.success) {
           acc.push(item.data as ReturnType<T['parse']>);
         } else {
           item = item as Invalid;
-          const errorKey = item.error?.cause?.key
-            ? `${index}.${item.error.cause.key}`
-            : `${index}`;
 
-          item.error.message = `Error parsing index "${index}": ${item.error.message}`;
-          item.error.cause = { key: errorKey };
+          if (abortEarly !== false) {
+            const formattedError = formatError(item.error, index);
 
-          return item;
+            return {
+              success: false,
+              error: formattedError,
+              errors: [formattedError],
+            };
+          }
+
+          propagateNestedErrors(item, errors, index);
         }
+      }
+
+      if (errors.length > 0) {
+        return {
+          success: false,
+          error: errors[0], // First error as the main error
+          errors,
+        };
       }
 
       return { success: true, data: acc } as {
@@ -297,6 +410,15 @@ export const s = {
     definitions: T,
     options?: SchemaInterfaceOptions,
   ): UnionSchemaInterface<T> {
+    const message = (value) =>
+      `Invalid union value. Expected the value to match one of the schemas:${definitions
+        .map(
+          (definition, idx) => ` ${idx + 1}. ${definition._getDescription()}`,
+        )
+        .join(',')} but received "${typeof value}" with value: ${
+        objectValidation(value) ? JSON.stringify(value) : `"${value}"`
+      }`;
+
     const validation = (value) => {
       for (let index = 0; index < definitions.length; index++) {
         const result = (
@@ -304,15 +426,12 @@ export const s = {
             value: unknown,
           ) => InternalParseOutput<unknown>
         )(value);
-
         if (result.success) {
           return true;
         }
       }
       return false;
     };
-    const message = (value) =>
-      `Invalid union value. Expected the value to match one of the schemas: ${definitions.map((definition) => `"${definition._getType()}"`).join(' | ')}, but received "${typeof value}" with value "${value}".`;
 
     const schema = createSchemaInterface<
       ReturnType<T[number]['parse']>,
@@ -323,7 +442,44 @@ export const s = {
       type: 'union',
     });
 
-    return schema;
+    //   hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+    //     const value = originalParse(data, parseOptions);
+    //     const { abortEarly } = resolveParseOptions(
+    //       parseOptions as ParseOptions | undefined,
+    //     );
+
+    //     const errors: ErrorStructure[] = [];
+
+    //     for (let index = 0; index < definitions.length; index++) {
+    //       const result = (
+    //         definitions[index]._parse as (
+    //           value: unknown,
+    //           parseOptions?: ParseOptions
+    //         ) => InternalParseOutput<unknown>
+    //       )(value.data, parseOptions as ParseOptions | undefined);
+
+    //       if (result.success) {
+    //         return result;
+    //       }
+
+    //       if (result.success === false) {
+    //         propagateNestedErrors(result, errors, index);
+    //       }
+    //     }
+
+    //     const formattedError = {
+    //       message: message(value.data),
+    //       cause: { key: 'union' },
+    //     };
+
+    //     return {
+    //       success: false,
+    //       error: formattedError,
+    //       errors: [formattedError, ...errors],
+    //     };
+    //   });
+
+    return schema as UnionSchemaInterface<T>;
   },
 };
 
@@ -335,7 +491,10 @@ function errorMessageFactory(type) {
 function hookOriginal<Input, Output>(
   object: SchemaInterface<Input, Output> | SchemaType,
   method: string,
-  action: (original: Function, ...args: unknown[]) => Output,
+  action: (
+    original: Function,
+    ...args: unknown[]
+  ) => InternalParseOutput<Output>,
 ) {
   const original = object[method];
 
@@ -359,22 +518,28 @@ function createSchemaInterface<Input, Output>(
     _getType() {
       return type;
     },
-    _parse(value) {
+    _getDescription() {
+      return this._getType();
+    },
+    _parse(value, parseOptions) {
       const isValid = validation(value);
 
       if (isValid) {
         return { success: true, data: value as unknown as Output };
       }
 
+      const error = {
+        message: typeof message === 'function' ? message(value) : message,
+      };
+
       return {
         success: false,
-        error: {
-          message: typeof message === 'function' ? message(value) : message,
-        },
+        error,
+        errors: [error],
       };
     },
-    parse(value) {
-      let item = defaultInterface._parse(value);
+    parse(value, parseOptions) {
+      let item = defaultInterface._parse(value, parseOptions);
 
       if (!item.success) {
         item = item as Invalid;
@@ -384,12 +549,12 @@ function createSchemaInterface<Input, Output>(
 
       return item.data as Output;
     },
-    safeParse(value) {
-      return defaultInterface._parse(value);
+    safeParse(value, parseOptions) {
+      return defaultInterface._parse(value, parseOptions);
     },
     transform(callback) {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const item = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
 
         if (!item.success) {
           return item;
@@ -403,8 +568,8 @@ function createSchemaInterface<Input, Output>(
       return this;
     },
     optional() {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const item = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
 
         if (!item.success) {
           item.data = undefined;
@@ -417,8 +582,8 @@ function createSchemaInterface<Input, Output>(
       return this;
     },
     nullable() {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const item = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
 
         if (!item.success) {
           item.data = null;
@@ -432,8 +597,8 @@ function createSchemaInterface<Input, Output>(
       return this;
     },
     nullish() {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const item = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
 
         if (!item.success && (value === undefined || value === null)) {
           item.success = true; // Mark as success since we are allowing undefined or null
@@ -446,44 +611,57 @@ function createSchemaInterface<Input, Output>(
       return this;
     },
     default(defaultValue) {
-      hookOriginal(this, '_parse', (originalParse, value) => {
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
         if (value === undefined) {
           value = defaultValue;
           value =
             typeof defaultValue === 'function' ? defaultValue() : defaultValue;
         }
 
-        return originalParse(value) as Partial<typeof value>;
+        return originalParse(value, parseOptions) as InternalParseOutput<
+          Partial<typeof value>
+        >;
       });
 
       return this;
     },
     pipe(schema) {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const item = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
         if (!item.success) {
           return item;
         }
 
-        return schema._parse(item.data);
+        return schema._parse(
+          item.data,
+          parseOptions as ParseOptions | undefined,
+        );
       });
 
       return this;
     },
     refine(validation, { message } = {}) {
-      hookOriginal(this, '_parse', (originalParse, value) => {
-        const parsedValue = originalParse(value);
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const parsedValue = originalParse(value, parseOptions);
 
         if (!parsedValue.success) {
           return parsedValue;
         }
 
         if (!validation(parsedValue.data)) {
+          const messageText =
+            typeof message === 'function' ? message(value) : message;
+
           return {
             success: false,
             error: {
-              message: typeof message === 'function' ? message(value) : message,
+              message: messageText,
             },
+            errors: [
+              {
+                message: messageText,
+              },
+            ],
           };
         }
 

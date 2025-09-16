@@ -287,7 +287,7 @@ describe('s.union Method', () => {
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
-      `Invalid union value. Expected the value to match one of the schemas: "string" | "number" | "boolean", but received "object" with value "[object Object]".`,
+      'Invalid union value. Expected the value to match one of the schemas: 1. string, 2. number, 3. boolean but received "object" with value: {"key":"value"}',
     );
   });
 
@@ -307,7 +307,7 @@ describe('s.union Method', () => {
     assert.equal(invalidResult.success, false);
     assert.equal(
       invalidResult.error.message,
-      `Invalid union value. Expected the value to match one of the schemas: "object" | "object", but received "object" with value "[object Object]".`,
+      'Invalid union value. Expected the value to match one of the schemas: 1. object({ type: string, value: number }), 2. object({ type: string, value: string }) but received "object" with value: {"type":"unknown","value":true}',
     );
   });
 
@@ -319,7 +319,7 @@ describe('s.union Method', () => {
     assert.equal(result.success, false);
     assert.equal(
       result.error.message,
-      `Invalid union value. Expected the value to match one of the schemas: , but received "string" with value "test".`,
+      'Invalid union value. Expected the value to match one of the schemas: but received "string" with value: "test"',
     );
   });
 });
