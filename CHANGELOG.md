@@ -1,3 +1,9 @@
+## 0.4.0 (2025-09-16)
+
+* feat: 🎸 add abortEarly parseOption ([fc4843b](https://github.com/mjancarik/esmj-schema/commit/fc4843b))
+
+
+
 ## <small>0.3.6 (2025-08-08)</small>
 
 * chore: 🤖 add more keywords ([9003cda](https://github.com/mjancarik/esmj-schema/commit/9003cda))
