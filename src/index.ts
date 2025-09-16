@@ -442,43 +442,6 @@ export const s = {
       type: 'union',
     });
 
-    //   hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
-    //     const value = originalParse(data, parseOptions);
-    //     const { abortEarly } = resolveParseOptions(
-    //       parseOptions as ParseOptions | undefined,
-    //     );
-
-    //     const errors: ErrorStructure[] = [];
-
-    //     for (let index = 0; index < definitions.length; index++) {
-    //       const result = (
-    //         definitions[index]._parse as (
-    //           value: unknown,
-    //           parseOptions?: ParseOptions
-    //         ) => InternalParseOutput<unknown>
-    //       )(value.data, parseOptions as ParseOptions | undefined);
-
-    //       if (result.success) {
-    //         return result;
-    //       }
-
-    //       if (result.success === false) {
-    //         propagateNestedErrors(result, errors, index);
-    //       }
-    //     }
-
-    //     const formattedError = {
-    //       message: message(value.data),
-    //       cause: { key: 'union' },
-    //     };
-
-    //     return {
-    //       success: false,
-    //       error: formattedError,
-    //       errors: [formattedError, ...errors],
-    //     };
-    //   });
-
     return schema as UnionSchemaInterface<T>;
   },
 };
