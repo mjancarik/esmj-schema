@@ -20,33 +20,33 @@
     "joi",
     "arktype"
   ],
-  "main": "dist/index",
-  "module": "dist/index",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.cjs"
     },
     "./full": {
       "types": "./dist/full.d.ts",
       "import": "./dist/full.mjs",
-      "require": "./dist/full.js"
+      "require": "./dist/full.cjs"
     },
     "./string": {
       "types": "./dist/string.d.ts",
       "import": "./dist/string.mjs",
-      "require": "./dist/string.js"
+      "require": "./dist/string.cjs"
     },
     "./number": {
       "types": "./dist/number.d.ts",
       "import": "./dist/number.mjs",
-      "require": "./dist/number.js"
+      "require": "./dist/number.cjs"
     },
     "./array": {
       "types": "./dist/array.d.ts",
       "import": "./dist/array.mjs",
-      "require": "./dist/array.js"
+      "require": "./dist/array.cjs"
     }
   },
   "sideEffects": [

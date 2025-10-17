@@ -10,5 +10,10 @@ export default [
     treeshake: true,
     shims: false,
     dts: true,
+    outExtension({ format }) {
+      return {
+        js: format === 'cjs' ? '.cjs' : '.mjs',
+      };
+    },
   }),
 ];
