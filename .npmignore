@@ -1,6 +1,7 @@
 
 /src
 /coverage
+/examples
 .babelrc
 .eslintrc.js
 .gitignore
