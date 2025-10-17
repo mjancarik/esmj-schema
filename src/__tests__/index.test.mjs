@@ -175,7 +175,7 @@ describe('Integration Tests', () => {
         extra: 'baz',
         account: '1234',
         money: 100,
-        address: { street: 'street' },
+        address: { street: 'street', code: null },
         records: [undefined, { name: 'record2' }],
       });
 

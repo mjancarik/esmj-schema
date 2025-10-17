@@ -269,18 +269,18 @@ describe('abortEarly option', () => {
     const result = userSchema.safeParse(
       {
         name: 123, // Invalid
-        age: 'thirty', // Invalid (but optional should make this valid)
-        // email omitted (valid since nullable)
+        age: 'thirty', // Invalid
+        // email omitted (invalid since nullable)
       },
       { abortEarly: false },
     );
 
     assert.strictEqual(result.success, false);
 
-    // Currently, optional() makes the field valid even with wrong type
-    // This test documents current behavior
-    assert.strictEqual(result.errors.length, 1);
+    assert.strictEqual(result.errors.length, 3);
     assert(result.errors[0].message.includes('name'));
+    assert(result.errors[1].message.includes('age'));
+    assert(result.errors[2].message.includes('email'));
   });
 
   it('should maintain consistent error message format across different schema types', () => {

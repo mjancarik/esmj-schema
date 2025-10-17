@@ -2,14 +2,20 @@
   "name": "@esmj/schema",
   "version": "0.4.0",
   "description": "Tiny extendable package for schema validation.",
+  "type": "module",
   "keywords": [
     "schema",
     "validation",
     "type",
+    "typescript",
+    "type-safe",
+    "validator",
+    "parse",
+    "transform",
     "inference",
     "zod",
-    "@sinclair/typebox",
     "yup",
+    "@sinclair/typebox",
     "superstruct",
     "joi",
     "arktype"
@@ -18,11 +24,37 @@
   "module": "dist/index",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./full": {
+      "types": "./dist/full.d.ts",
+      "import": "./dist/full.mjs",
+      "require": "./dist/full.js"
+    },
+    "./string": {
+      "types": "./dist/string.d.ts",
+      "import": "./dist/string.mjs",
+      "require": "./dist/string.js"
+    },
+    "./number": {
+      "types": "./dist/number.d.ts",
+      "import": "./dist/number.mjs",
+      "require": "./dist/number.js"
+    },
+    "./array": {
+      "types": "./dist/array.d.ts",
+      "import": "./dist/array.mjs",
+      "require": "./dist/array.js"
     }
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "src/string.ts",
+    "src/number.ts",
+    "src/array.ts",
+    "src/full.ts"
+  ],
   "typings": "dist/index.d.ts",
   "scripts": {
     "lint": "biome check --no-errors-on-unmatched",

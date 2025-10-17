@@ -1,11 +1,93 @@
 # Schema
 
-This small library provides a simple schema validation system for JavaScript/TypeScript. The library has basic types with opportunities for extending. 
+This small library provides a simple schema validation system for JavaScript/TypeScript. The library has basic types with opportunities for extending.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Why Use @esmj/schema?](#why-use-esmjschema)
+- [Comparison with Similar Libraries](#comparison-with-similar-libraries)
+- [Usage](#usage)
+  - [Basic Usage](#basic-usage)
+- [Modular Extensions](#modular-extensions)
+  - [String Extensions](#string-extensions-esmjschemastring)
+  - [Number Extensions](#number-extensions-esmjschemanumber)
+  - [Array Extensions](#array-extensions-esmjschemaarray)
+  - [Full Extensions](#full-extensions-esmjschemafull)
+- [API Reference Summary](#api-reference-summary)
+- [Schema Types](#schema-types)
+- [Schema Methods](#schema-methods)
+  - [parse](#parsevalue-parseoptions)
+  - [safeParse](#safeparsevalue-parseoptions)
+  - [Error Collection with abortEarly](#error-collection-with-abortearly-option)
+- [Extending Schemas](#extending-schemas)
+- [More Examples](#more-examples)
+- [Examples Folder](#examples-folder)
+- [Migration Guide](#migration-guide)
+  - [From Zod](#from-zod)
+  - [From Yup](#from-yup)
+- [License](#license)
 
 ## Installation
 
 ```sh
 npm install @esmj/schema
+```
+
+## Quick Start
+
+Get started with `@esmj/schema` in seconds:
+
+```typescript
+import { s } from '@esmj/schema';
+
+// Define a schema
+const userSchema = s.object({
+  name: s.string(),
+  age: s.number(),
+  email: s.string().optional()
+});
+
+// Parse data
+const user = userSchema.parse({
+  name: 'John Doe',
+  age: 30
+});
+
+console.log(user);
+// { name: 'John Doe', age: 30 }
+
+// Safe parse with error handling
+const result = userSchema.safeParse({
+  name: 'Jane',
+  age: 'invalid'
+});
+
+if (result.success) {
+  console.log(result.data);
+} else {
+  console.error(result.error.message);
+}
+```
+
+**With Extensions:**
+
+```typescript
+import { s } from '@esmj/schema/full';
+
+const schema = s.object({
+  username: s.string().trim().toLowerCase().min(3).max(20),
+  age: s.number().int().positive().min(18),
+  tags: s.array(s.string()).min(1).unique()
+});
+
+const result = schema.parse({
+  username: '  JohnDoe  ',
+  age: 25,
+  tags: ['developer', 'typescript']
+});
+// { username: 'johndoe', age: 25, tags: ['developer', 'typescript'] }
 ```
 
 ## Why Use `@esmj/schema`?
@@ -14,11 +96,12 @@ npm install @esmj/schema
 
 1. **TypeScript First**: Built with TypeScript in mind, it provides strong type inference—even for deeply nested and complex schemas.
 2. **Extensibility**: Easily extend the library with custom logic, refinements, and preprocessors using the `extend` function.
-3. **Rich Features**: Includes advanced features like preprocessing, transformations, piping, refinements, and robust error collection (`abortEarly`).
-4. **Actionable Error Handling**: Collect all validation errors at once for better debugging and user experience, with clear and consistent error structures (`error` and `errors`).
+3. **Rich Features**: Includes advanced features like preprocessing, transformations, piping, refinements, and robust error collection (`abortEarly`), which are not always available in similar libraries.
+4. **Actionable Error Handling**: Collect all validation errors at once for better debugging and user experience, with clear and consistent error structures.
 5. **Lightweight**: No dependencies and a small footprint make it ideal for projects where performance and simplicity are key.
 6. **Customizable**: Offers fine-grained control over validation, error handling, and schema composition.
 7. **Performance**: Optimized for speed, making it one of the fastest schema validation libraries available.
+8. **Modular**: Import only what you need with separate string, number, and array extension modules to minimize bundle size.
 
 ### Performance Highlights
 
@@ -138,6 +221,287 @@ console.log(result);
 //   records: [],
 // }
 ```
+
+## Modular Extensions
+
+`@esmj/schema` provides modular extensions that can be imported individually or all together, allowing you to include only the validation helpers you need.
+
+### Import Options
+
+```typescript
+// Minimal version (core only, ~1.4 KB)
+import { s } from '@esmj/schema';
+
+// Full version (all extensions included, ~4 KB)
+import { s } from '@esmj/schema/full';
+
+// String extensions only
+import { s } from '@esmj/schema/string';
+
+// Number extensions only
+import { s } from '@esmj/schema/number';
+
+// Array extensions only
+import { s } from '@esmj/schema/array';
+
+// Mix and match (side-effect imports)
+import '@esmj/schema/string';
+import '@esmj/schema/number';
+import { s } from '@esmj/schema';
+```
+
+### Bundle Size Impact
+
+- **Core only** (`@esmj/schema`): ~1.4 KB gzipped
+- **String extensions** (`@esmj/schema/string`): +~0.8 KB
+- **Number extensions** (`@esmj/schema/number`): +~0.6 KB
+- **Array extensions** (`@esmj/schema/array`): +~0.5 KB
+- **Full** (`@esmj/schema/full`): ~4 KB gzipped (all extensions)
+
+**Recommendation:** Import only the extensions you need to minimize bundle size.
+
+### String Extensions (`@esmj/schema/string`)
+
+String extensions provide common validation and transformation methods for string schemas.
+
+```typescript
+import { s } from '@esmj/schema/string';
+
+const userSchema = s.object({
+  username: s.string()
+    .trim()              // Remove whitespace
+    .toLowerCase()        // Convert to lowercase
+    .min(3)              // Minimum 3 characters
+    .max(20)             // Maximum 20 characters
+    .startsWith('user_'), // Must start with 'user_'
+  
+  email: s.string()
+    .trim()
+    .toLowerCase()
+    .includes('@')        // Must contain '@'
+});
+
+userSchema.parse({
+  username: '  USER_John  ',
+  email: '  John@Example.com  '
+});
+// ✓ { username: 'user_john', email: 'john@example.com' }
+```
+
+**Available String Methods:**
+
+- **Length validations**: `min(length)`, `max(length)`, `length(exact)`, `nonEmpty()`
+- **Pattern validations**: `startsWith(prefix)`, `endsWith(suffix)`, `includes(substring)`
+- **Transformations**: `trim()`, `toLowerCase()`, `toUpperCase()`, `padStart(length, char)`, `padEnd(length, char)`, `replace(search, replace)`
+
+### Number Extensions (`@esmj/schema/number`)
+
+Number extensions provide validation methods for number schemas including range checks and type validations.
+
+```typescript
+import { s } from '@esmj/schema/number';
+
+const productSchema = s.object({
+  price: s.number()
+    .positive()           // Must be positive
+    .min(0.01)           // Minimum value
+    .max(999999.99),     // Maximum value
+  
+  quantity: s.number()
+    .int()               // Must be integer
+    .positive()
+    .min(1)
+    .max(1000),
+  
+  discount: s.number()
+    .min(0)
+    .max(100)
+    .multipleOf(5)       // Must be multiple of 5
+});
+
+productSchema.parse({
+  price: 29.99,
+  quantity: 5,
+  discount: 10
+});
+// ✓ { price: 29.99, quantity: 5, discount: 10 }
+```
+
+**Available Number Methods:**
+
+- **Range validations**: `min(value)`, `max(value)`, `positive()`, `negative()`
+- **Type validations**: `int()`, `float()`, `multipleOf(value)`, `finite()`
+
+### Array Extensions (`@esmj/schema/array`)
+
+Array extensions provide validation and transformation methods for array schemas.
+
+```typescript
+import { s } from '@esmj/schema/array';
+
+const tagsSchema = s.object({
+  tags: s.array(s.string())
+    .min(1)              // At least 1 item
+    .max(5)              // At most 5 items
+    .unique()            // All items must be unique
+});
+
+tagsSchema.parse({
+  tags: ['javascript', 'typescript', 'node']
+});
+// ✓ { tags: ['javascript', 'typescript', 'node'] }
+```
+
+**Available Array Methods:**
+
+- **Size validations**: `min(length)`, `max(length)`, `length(exact)`, `nonEmpty()`
+- **Content validations**: `unique()`
+- **Transformations**: `sort()`, `reverse()`
+
+### Full Extensions (`@esmj/schema/full`)
+
+The full version includes all string, number, and array extensions in a single import.
+
+```typescript
+import { s } from '@esmj/schema/full';
+
+const productSchema = s.object({
+  // String extensions
+  name: s.string()
+    .trim()
+    .min(3)
+    .max(100),
+  
+  sku: s.string()
+    .toUpperCase()
+    .length(8)
+    .startsWith('PROD'),
+  
+  // Number extensions
+  price: s.number()
+    .positive()
+    .min(0.01)
+    .max(999999.99),
+  
+  stock: s.number()
+    .int()
+    .min(0),
+  
+  // Array extensions
+  categories: s.array(s.string())
+    .min(1)
+    .max(5)
+    .unique(),
+  
+  dimensions: s.array(s.number().positive())
+    .length(3) // [length, width, height]
+});
+```
+
+**Custom Error Messages:**
+
+All extension methods support custom error messages:
+
+```typescript
+const schema = s.object({
+  username: s.string().min(3, {
+    message: 'Username is too short! Please use at least 3 characters.'
+  }),
+  age: s.number().positive({
+    message: 'Age must be a positive number.'
+  }),
+  tags: s.array(s.string()).unique({
+    message: 'Duplicate tags are not allowed.'
+  })
+});
+```
+
+## API Reference Summary
+
+### Core Types
+
+- `s.string()` - String validation
+- `s.number()` - Number validation
+- `s.boolean()` - Boolean validation
+- `s.date()` - Date validation
+- `s.object(def)` - Object validation
+- `s.array(def)` - Array validation
+- `s.enum(values)` - Enum validation
+- `s.union(schemas)` - Union validation
+- `s.any()` - Any type
+- `s.null()` - Null type
+- `s.undefined()` - Undefined type
+- `s.unknown()` - Unknown type
+
+### Modifiers
+
+- `.optional()` - Makes field optional
+- `.nullable()` - Makes field nullable
+- `.nullish()` - Makes field optional and nullable
+- `.default(value)` - Sets default value
+
+### Transformations
+
+- `.transform(fn)` - Transform value
+- `s.preprocess(fn, schema)` - Preprocess before validation
+- `.pipe(schema)` - Pipe to another schema
+- `.refine(fn, opts)` - Custom validation
+
+### String Extensions
+
+Available when importing from `@esmj/schema/string` or `@esmj/schema/full`:
+
+**Length Validations:**
+- `.min(n)` - Minimum length
+- `.max(n)` - Maximum length
+- `.length(n)` - Exact length
+- `.nonEmpty()` - Non-empty string
+
+**Pattern Validations:**
+- `.startsWith(prefix)` - Must start with prefix
+- `.endsWith(suffix)` - Must end with suffix
+- `.includes(substring)` - Must contain substring
+
+**Transformations:**
+- `.trim()` - Remove whitespace
+- `.toLowerCase()` - Convert to lowercase
+- `.toUpperCase()` - Convert to uppercase
+- `.padStart(length, char)` - Pad start
+- `.padEnd(length, char)` - Pad end
+- `.replace(search, replace)` - Replace text
+
+### Number Extensions
+
+Available when importing from `@esmj/schema/number` or `@esmj/schema/full`:
+
+**Range Validations:**
+- `.min(n)` - Minimum value
+- `.max(n)` - Maximum value
+- `.positive()` - Must be positive
+- `.negative()` - Must be negative
+
+**Type Validations:**
+- `.int()` - Must be integer
+- `.float()` - Must be float (non-integer)
+- `.multipleOf(n)` - Must be multiple of n
+- `.finite()` - Must be finite
+
+### Array Extensions
+
+Available when importing from `@esmj/schema/array` or `@esmj/schema/full`:
+
+**Size Validations:**
+- `.min(n)` - Minimum length
+- `.max(n)` - Maximum length
+- `.length(n)` - Exact length
+- `.nonEmpty()` - Non-empty array
+
+**Content Validations:**
+- `.unique()` - All items must be unique
+
+**Transformations:**
+- `.sort()` - Sort array
+- `.reverse()` - Reverse array
 
 ### Schema Types
 
@@ -467,25 +831,145 @@ This means you get all errors from deeply nested structures when using `{ abortE
 
 ### Extending Schemas
 
-You can extend the schema system with custom logic.
+You can extend the schema system with custom validation methods. This is useful for adding domain-specific validations like email or URL formats.
+
+#### Basic Extension Example
 
 ```typescript
-import { extend, type StringSchemaInterface } from '@esmj/schema';
+import { extend, type SchemaType, type StringSchemaInterface } from '@esmj/schema';
 
-interface StringSchemaInterface {
-  customMethod(value: string): string {}
+// First, declare the new methods you want to add
+declare module '@esmj/schema' {
+  interface StringSchemaInterface {
+    email(): StringSchemaInterface;
+    url(): StringSchemaInterface;
+    trim(): StringSchemaInterface;
+  }
 }
 
-extend((schema, validation, options) => {
-  schema.customMethod = (value) => {
-    // Custom logic
+// Define validation patterns
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_REGEX = /^(https?:\/\/[^\s$.?#].[^\s]*)$/;
 
-    return value;
-  };
+// Extend the schema system
+extend((schema: SchemaType, _, options) => {
+  // Only add methods to string schemas
+  if (options?.type === 'string') {
+    const stringSchema = schema as StringSchemaInterface;
+    
+    // Add email validation
+    stringSchema.email = function() {
+      return this.refine((value) => EMAIL_REGEX.test(value), {
+        message: 'Invalid email format'
+      });
+    };
+    
+    // Add URL validation
+    stringSchema.url = function() {
+      return this.refine((value) => URL_REGEX.test(value), {
+        message: 'Invalid URL format'
+      });
+    };
+    
+    // Add string trimming
+    stringSchema.trim = function() {
+      return this.transform((value) => value.trim());
+    };
+  }
 
   return schema;
 });
 ```
+
+#### Usage of Extended Schemas
+
+Once extended, you can use your custom methods in schema definitions:
+
+```typescript
+const userSchema = s.object({
+  name: s.string().trim(),
+  email: s.string().email(),
+  website: s.string().url().optional()
+});
+
+// Valid data
+userSchema.parse({
+  name: '  John Doe  ', // Will be trimmed
+  email: 'john@example.com'
+});
+
+// Invalid data
+try {
+  userSchema.parse({
+    name: 'John Doe',
+    email: 'not-an-email'
+  });
+} catch (error) {
+  console.error(error); // "Invalid email format"
+}
+```
+
+#### Advanced Extensions
+
+You can extend any schema type and add complex validations:
+
+```typescript
+declare module '@esmj/schema' {
+  interface NumberSchemaInterface {
+    positive(): NumberSchemaInterface;
+    range(min: number, max: number): NumberSchemaInterface;
+  }
+  
+  interface ArraySchemaInterface<T> {
+    minLength(length: number): ArraySchemaInterface<T>;
+    unique(): ArraySchemaInterface<T>;
+  }
+}
+
+extend((schema: SchemaType, _, options) => {
+  if (options?.type === 'number') {
+    const numberSchema = schema as NumberSchemaInterface;
+    
+    numberSchema.positive = function() {
+      return this.refine((value) => value > 0, {
+        message: 'Number must be positive'
+      });
+    };
+    
+    numberSchema.range = function(min, max) {
+      return this.refine((value) => value >= min && value <= max, {
+        message: `Number must be between ${min} and ${max}`
+      });
+    };
+  }
+  
+  if (options?.type === 'array') {
+    const arraySchema = schema as ArraySchemaInterface<unknown>;
+    
+    arraySchema.minLength = function(length) {
+      return this.refine((value) => value.length >= length, {
+        message: `Array must contain at least ${length} items`
+      });
+    };
+    
+    arraySchema.unique = function() {
+      return this.refine((value) => {
+        const seen = new Set();
+        return value.every(item => {
+          const serialized = JSON.stringify(item);
+          if (seen.has(serialized)) return false;
+          seen.add(serialized);
+          return true;
+        });
+      }, { message: 'Array items must be unique' });
+    };
+  }
+  
+  return schema;
+});
+```
+
+This extension system gives you the flexibility to create domain-specific validation rules while maintaining type safety and the fluent API style.
 
 ### More Examples
 
@@ -652,6 +1136,166 @@ const result = combinedSchema.parse('   hello   ');
 console.log(result);
 // 'HELLO'
 ```
+
+## Examples Folder
+
+The `examples/` folder contains comprehensive, runnable examples demonstrating various use cases:
+
+### Basic Usage (`examples/basic-usage.ts`)
+
+Demonstrates the core validation features with strings, numbers, arrays, and unions:
+
+```bash
+node --experimental-strip-types examples/basic-usage.ts
+```
+
+### Custom Validation (`examples/custom-validation.ts`)
+
+Shows how to create custom validators for common use cases:
+- Email validation with regex
+- URL validation
+- Age range validation
+- Password strength validation
+- Cross-field validation (e.g., password confirmation)
+
+```bash
+node --experimental-strip-types examples/custom-validation.ts
+```
+
+### Advanced Forms (`examples/advanced-forms.ts`)
+
+Real-world form validation examples:
+- User profile schema with nested objects
+- Address validation with postal codes
+- Phone number formatting and validation
+- API response validation
+- Complex nested structures
+
+```bash
+node --experimental-strip-types examples/advanced-forms.ts
+```
+
+### Custom Extensions (`examples/custom-extensions.ts`)
+
+Demonstrates how to extend the library with custom methods:
+- Email validation extension
+- URL validation extension
+- UUID validation extension
+- Combining custom extensions with built-in validators
+
+```bash
+node --experimental-strip-types examples/custom-extensions.ts
+```
+
+**To run all examples:**
+
+```bash
+# Using Node.js with experimental type stripping (built-in, no dependencies)
+node --experimental-strip-types examples/basic-usage.ts
+node --experimental-strip-types examples/custom-validation.ts
+node --experimental-strip-types examples/advanced-forms.ts
+node --experimental-strip-types examples/custom-extensions.ts
+
+# OR using tsx (requires installation)
+npm install -g tsx  # If not already installed
+npx tsx examples/basic-usage.ts
+npx tsx examples/custom-validation.ts
+npx tsx examples/advanced-forms.ts
+npx tsx examples/custom-extensions.ts
+```
+## Migration Guide
+
+### From Zod
+
+`@esmj/schema` has a similar API to Zod, making migration straightforward:
+
+```typescript
+// Zod
+import { z } from 'zod';
+
+const userSchema = z.object({
+  name: z.string().min(3).max(50),
+  email: z.string().email(),
+  age: z.number().positive().int(),
+  role: z.enum(['admin', 'user']),
+  tags: z.array(z.string()).optional()
+});
+
+// @esmj/schema (with extensions)
+import { s } from '@esmj/schema/full';
+
+const userSchema = s.object({
+  name: s.string().min(3).max(50),
+  email: s.string(), // Note: email() validation requires custom extension
+  age: s.number().positive().int(),
+  role: s.enum(['admin', 'user']),
+  tags: s.array(s.string()).optional()
+});
+```
+
+**Key Differences:**
+
+| Feature | Zod | @esmj/schema |
+|---------|-----|--------------|
+| Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
+| Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
+| Bundle size | ~13 KB | ~1.4 KB (core), ~4 KB (full) |
+| Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
+| Error format | Native Error | Plain object `{ success, error, errors }` |
+
+**Migration Tips:**
+
+1. Replace `z` with `s` in your imports
+2. For string methods like `.min()`, `.trim()`, import from `@esmj/schema/full` or `@esmj/schema/string`
+3. Add custom extensions for email, URL validation (see examples below)
+4. Update error handling to use the plain object structure
+
+### From Yup
+
+Migrating from Yup requires a few adjustments in syntax:
+
+```typescript
+// Yup
+import * as yup from 'yup';
+
+const userSchema = yup.object({
+  name: yup.string().required().min(3).max(50),
+  email: yup.string().required().email(),
+  age: yup.number().required().positive().integer(),
+  website: yup.string().url().nullable(),
+  tags: yup.array().of(yup.string()).min(1)
+});
+
+// @esmj/schema (with extensions)
+import { s } from '@esmj/schema/full';
+
+const userSchema = s.object({
+  name: s.string().min(3).max(50), // Fields are required by default
+  email: s.string(), // Note: email() validation requires custom extension
+  age: s.number().positive().int(),
+  website: s.string().nullable(),
+  tags: s.array(s.string()).min(1)
+});
+```
+
+**Key Differences:**
+
+| Feature | Yup | @esmj/schema |
+|---------|-----|--------------|
+| Required fields | `.required()` explicit | Required by default |
+| Optional fields | Default behavior | `.optional()` explicit |
+| Array of type | `.array().of(type)` | `.array(type)` |
+| Integer | `.integer()` | `.int()` |
+| Email validation | `.email()` built-in | Custom extension needed |
+| Async validation | Supported | Not currently supported |
+
+**Migration Tips:**
+
+1. Remove `.required()` calls (fields are required by default)
+2. Add `.optional()` for optional fields
+3. Change `.array().of(type)` to `.array(type)`
+4. Change `.integer()` to `.int()`
+5. Add custom extensions for email, URL validation
 
 ## License
 
