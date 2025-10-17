@@ -1,3 +1,11 @@
+## <small>0.5.1 (2025-10-17)</small>
+
+* chore: 🤖 add examples to npmignore ([4d86e27](https://github.com/mjancarik/esmj-schema/commit/4d86e27))
+* chore: 🤖 add tsconfig to npmignore ([89c4353](https://github.com/mjancarik/esmj-schema/commit/89c4353))
+* chore: 🤖 fix build and entry points ([885ab2f](https://github.com/mjancarik/esmj-schema/commit/885ab2f))
+
+
+
 ## 0.5.0 (2025-10-17)
 
 * feat: 🎸 add new extended methods for string,number,arrays ([9ffc561](https://github.com/mjancarik/esmj-schema/commit/9ffc561))
