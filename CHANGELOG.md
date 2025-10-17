@@ -1,3 +1,19 @@
+## 0.5.0 (2025-10-17)
+
+* feat: 🎸 add new extended methods for string,number,arrays ([9ffc561](https://github.com/mjancarik/esmj-schema/commit/9ffc561))
+* docs: ✏️ update module size ([e18755b](https://github.com/mjancarik/esmj-schema/commit/e18755b))
+* chore: 🤖 remove comments ([7295587](https://github.com/mjancarik/esmj-schema/commit/7295587))
+* chore: 🤖 update dev dependencies ([73c6767](https://github.com/mjancarik/esmj-schema/commit/73c6767))
+
+
+### BREAKING CHANGE
+
+* 🧨 The types were changed. The optional and nullable change behaviour to be
+more like zod methods. The optional in chain not allow invalid values to
+be transformed to undefined. The nullable in chain allow only valid type
+or null.
+
+
 ## 0.4.0 (2025-09-16)
 
 * feat: 🎸 add abortEarly parseOption ([fc4843b](https://github.com/mjancarik/esmj-schema/commit/fc4843b))
