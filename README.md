@@ -117,15 +117,15 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library           | Bundle Size (minified + gzipped) |
 |-------------------|---------------------------------|
-| `@esmj/schema`    | `~1,4 KB`                       |
+| `@esmj/schema`    | `~1.5 KB`                       |
 | Superstruct       | ~3.2 KB                         |
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
 | Zod@3             | ~13 KB                          |
-| @zod/mini         | ~20,5 KB                        |
-| Joi               | ~40,4 KB                        |
-| Zod@4             | ~40,8 KB                        |
-| ArkType           | ~41,8 KB                        |
+| @zod/mini         | ~20.5 KB                        |
+| Joi               | ~40.4 KB                        |
+| Zod@4             | ~40.8 KB                        |
+| ArkType           | ~41.8 KB                        |
 | Effect/Schema     | ~115.5 KB                       |
 
 ### Performance Comparison
@@ -229,7 +229,7 @@ console.log(result);
 ### Import Options
 
 ```typescript
-// Minimal version (core only, ~1.4 KB)
+// Minimal version (core only, ~1.5 KB)
 import { s } from '@esmj/schema';
 
 // Full version (all extensions included, ~4 KB)
@@ -252,7 +252,7 @@ import { s } from '@esmj/schema';
 
 ### Bundle Size Impact
 
-- **Core only** (`@esmj/schema`): ~1.4 KB gzipped
+- **Core only** (`@esmj/schema`): ~1.5 KB gzipped
 - **String extensions** (`@esmj/schema/string`): +~0.8 KB
 - **Number extensions** (`@esmj/schema/number`): +~0.6 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.5 KB
