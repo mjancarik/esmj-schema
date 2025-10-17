@@ -20,3 +20,4 @@ tsup.config.mjs
 jest.config.js
 setupJest.mjs
 biome.json
+tsconfig.json
