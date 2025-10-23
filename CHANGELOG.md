@@ -1,3 +1,10 @@
+## 0.6.0 (2025-10-23)
+
+* chore: 🤖 remove type module from package.json ([22d5187](https://github.com/mjancarik/esmj-schema/commit/22d5187))
+* docs: ✏️ update package size ([d8e33eb](https://github.com/mjancarik/esmj-schema/commit/d8e33eb))
+
+
+
 ## <small>0.5.1 (2025-10-17)</small>
 
 * chore: 🤖 add examples to npmignore ([4d86e27](https://github.com/mjancarik/esmj-schema/commit/4d86e27))
