@@ -1,4 +1,4 @@
-import { s } from '../src/full.ts';
+import { s } from '@esmj/schema/full';
 
 // Advanced form validation example
 const addressSchema = s.object({

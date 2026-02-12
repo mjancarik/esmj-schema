@@ -1,4 +1,4 @@
-import { s } from '../src/full.ts';
+import { s } from '@esmj/schema/full';
 
 // Custom email validation using refine
 const emailSchema = s
@@ -54,7 +54,7 @@ console.log('Valid age:', ageSchema.safeParse(25));
 console.log('Too young:', ageSchema.safeParse(15));
 console.log('Too old:', ageSchema.safeParse(150));
 
-// Custom password validation
+// Password validation with multiple rules
 const passwordSchema = s
   .string()
   .min(8, { message: 'Password must be at least 8 characters' })

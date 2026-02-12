@@ -1,7 +1,6 @@
-import { s } from '../src/full.ts';
+import { s } from '@esmj/schema/full';
 
-// String validations with transformations
-console.log('=== String Validations ===');
+console.log('=== Basic String Validation ===');
 console.log(
   'trim + startsWith + endsWith:',
   s

@@ -1,7 +1,7 @@
-import { s, extend, type StringSchemaInterface } from '../src/full.ts';
+import { s, extend, type StringSchemaInterface } from '@esmj/schema/full';
 
 // Extend StringSchemaInterface to add custom methods
-declare module '../src/full.ts' {
+declare module '@esmj/schema/full' {
   interface StringSchemaInterface {
     email(options?: { message?: string }): StringSchemaInterface;
     url(options?: { message?: string }): StringSchemaInterface;

@@ -1139,7 +1139,7 @@ console.log(result);
 
 ## Examples Folder
 
-The `examples/` folder contains comprehensive, runnable examples demonstrating various use cases:
+The `examples/` folder contains comprehensive, runnable examples demonstrating various use cases. See the [examples README](examples/README.md) for detailed documentation.
 
 ### Basic Usage (`examples/basic-usage.ts`)
 
@@ -1187,6 +1187,22 @@ Demonstrates how to extend the library with custom methods:
 node --experimental-strip-types examples/custom-extensions.ts
 ```
 
+### Registration Form (`examples/registration-form.ts`)
+
+Complete user registration form validation with email and phone number validation:
+- Username validation with pattern matching
+- Email validation using custom extension
+- International phone number validation
+- Password strength requirements
+- Password confirmation matching
+- Age verification (18+)
+- Terms acceptance validation
+- Error collection with `abortEarly: false`
+
+```bash
+node --experimental-strip-types examples/registration-form.ts
+```
+
 **To run all examples:**
 
 ```bash
@@ -1195,6 +1211,17 @@ node --experimental-strip-types examples/basic-usage.ts
 node --experimental-strip-types examples/custom-validation.ts
 node --experimental-strip-types examples/advanced-forms.ts
 node --experimental-strip-types examples/custom-extensions.ts
+node --experimental-strip-types examples/registration-form.ts
+
+# OR using npm scripts from examples folder
+cd examples
+npm install
+npm run basic
+npm run custom
+npm run advanced
+npm run extensions
+npm run registration
+npm run all  # Run all examples
 
 # OR using tsx (requires installation)
 npm install -g tsx  # If not already installed
@@ -1202,6 +1229,7 @@ npx tsx examples/basic-usage.ts
 npx tsx examples/custom-validation.ts
 npx tsx examples/advanced-forms.ts
 npx tsx examples/custom-extensions.ts
+npx tsx examples/registration-form.ts
 ```
 ## Migration Guide
 

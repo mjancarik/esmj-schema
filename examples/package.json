@@ -1,0 +1,18 @@
+{
+  "name": "esmj-schema-examples",
+  "version": "1.0.0",
+  "description": "Examples for @esmj/schema library",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "basic": "node --experimental-strip-types basic-usage.ts",
+    "custom": "node --experimental-strip-types custom-validation.ts",
+    "advanced": "node --experimental-strip-types advanced-forms.ts",
+    "extensions": "node --experimental-strip-types custom-extensions.ts",
+    "registration": "node --experimental-strip-types registration-form.ts",
+    "all": "npm run basic && npm run custom && npm run advanced && npm run extensions && npm run registration"
+  },
+  "dependencies": {
+    "@esmj/schema": "file:.."
+  }
+}
