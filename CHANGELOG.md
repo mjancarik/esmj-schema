@@ -1,3 +1,10 @@
+## 0.7.0 (2026-02-12)
+
+* feat: 🎸 added support for literals ([4a1f1d9](https://github.com/mjancarik/esmj-schema/commit/4a1f1d9))
+* chore: 🤖 update documentation ([f2c5907](https://github.com/mjancarik/esmj-schema/commit/f2c5907))
+
+
+
 ## 0.6.0 (2025-10-23)
 
 * chore: 🤖 remove type module from package.json ([22d5187](https://github.com/mjancarik/esmj-schema/commit/22d5187))
