@@ -426,6 +426,7 @@ const schema = s.object({
 - `s.date()` - Date validation
 - `s.object(def)` - Object validation
 - `s.array(def)` - Array validation
+- `s.literal(value)` - Literal value validation
 - `s.enum(values)` - Enum validation
 - `s.union(schemas)` - Union validation
 - `s.any()` - Any type
@@ -628,6 +629,65 @@ const enumSchemaFunc = s.enum(['admin', 'user', 'guest'], {
   message: (value) => `Custom error: "${value}" is not a valid enum value.`,
 });
 ```
+
+#### `s.literal(value, options?)`
+
+Creates a literal schema that validates against an exact value. The value can be a string, number, or boolean. This is useful for discriminated unions, API response types, and strict value validation. You can optionally pass `options` to customize error messages.
+
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
+```typescript
+// String literal
+const adminSchema = s.literal('admin');
+adminSchema.parse('admin'); // ✅ 'admin'
+adminSchema.parse('user');  // ❌ throws error
+
+// Number literal
+const statusCode = s.literal(200);
+statusCode.parse(200); // ✅ 200
+statusCode.parse(404); // ❌ throws error
+
+// Boolean literal
+const enabled = s.literal(true);
+enabled.parse(true);  // ✅ true
+enabled.parse(false); // ❌ throws error
+
+// Custom error message
+const typeSchema = s.literal('success', {
+  message: 'Response type must be "success"',
+});
+
+// Custom error function
+const versionSchema = s.literal(1, {
+  message: (value) => `API version must be 1, received ${value}`,
+});
+
+// Discriminated unions with literal
+const responseSchema = s.union([
+  s.object({
+    type: s.literal('success'),
+    data: s.string(),
+  }),
+  s.object({
+    type: s.literal('error'),
+    error: s.string(),
+  }),
+]);
+
+// Using multiple literals in union (similar to enum but with type inference)
+const roleSchema = s.union([
+  s.literal('admin'),
+  s.literal('user'),
+  s.literal('guest'),
+]);
+```
+
+**Common Use Cases:**
+
+- **Discriminated Unions**: Use literal types to distinguish between different object shapes
+- **API Response Types**: Validate exact status codes or response types
+- **Configuration Flags**: Validate boolean flags or specific string values
+- **Type Guards**: Create strict type validation for specific values
 
 #### `s.union(definitions, options?)`
 
