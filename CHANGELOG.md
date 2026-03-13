@@ -1,3 +1,9 @@
+## <small>0.7.1 (2026-03-13)</small>
+
+* feat: 🎸 add catch() method for fallback on parse failure ([9c58f06](https://github.com/mjancarik/esmj-schema/commit/9c58f06))
+
+
+
 ## 0.7.0 (2026-02-12)
 
 * feat: 🎸 added support for literals ([4a1f1d9](https://github.com/mjancarik/esmj-schema/commit/4a1f1d9))
