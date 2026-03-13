@@ -442,6 +442,13 @@ const schema = s.object({
 - `.default(value)` - Sets default value
 - `.catch(value)` - Returns fallback value on any parse failure
 
+### Coerce
+
+- `s.coerce.string()` - Coerce any value to string, then validate
+- `s.coerce.number()` - Coerce any value to number, then validate (fails for NaN)
+- `s.coerce.boolean()` - Coerce any value to boolean, then validate
+- `s.coerce.date()` - Coerce any value to Date, then validate (fails for invalid dates)
+
 ### Transformations
 
 - `.transform(fn)` - Transform value
@@ -728,6 +735,42 @@ Creates a schema that preprocesses the input value using the provided callback b
 
 ```typescript
 const preprocessSchema = s.preprocess((value) => new Date(value), s.date());
+```
+
+#### `s.coerce`
+
+The `coerce` namespace applies a native JS constructor to the input **before** validation.
+Unlike `s.preprocess`, you don't need to write the conversion yourself, and coerce methods
+provide clear, specific error messages when coercion produces an invalid result.
+
+| Method | Coercion applied | Fails when |
+|---|---|---|
+| `s.coerce.string(options?)` | `String(v)` | Never — `String()` always succeeds |
+| `s.coerce.number(options?)` | `Number(v)` | Result is `NaN` (e.g. `'bad'`, `undefined`) |
+| `s.coerce.boolean(options?)` | `Boolean(v)` | Never — `Boolean()` always succeeds |
+| `s.coerce.date(options?)` | `new Date(v)` | Result is an invalid Date (e.g. `'garbage'`) |
+
+> **Note:** `Boolean('false')` is `true` because `'false'` is a non-empty string. This matches JavaScript semantics.
+
+```typescript
+s.coerce.number().parse('42');         // 42
+s.coerce.number().parse(true);         // 1
+s.coerce.number().parse('bad');        // throws: Cannot coerce "NaN" to a valid number.
+
+s.coerce.string().parse(123);          // '123'
+s.coerce.string().parse(null);         // 'null'
+
+s.coerce.boolean().parse(0);           // false
+s.coerce.boolean().parse('false');     // true — non-empty string!
+
+s.coerce.date().parse('2024-01-01');   // Date object
+s.coerce.date().parse('garbage');      // throws: Cannot coerce "Invalid Date" to a valid date.
+
+// All schema methods chain normally after coerce:
+s.coerce.number().refine((v) => v > 0, { message: 'Must be positive' }).parse('5'); // 5
+
+// Custom error message:
+s.coerce.number({ message: 'Expected a numeric value' }).parse('bad'); // throws: Expected a numeric value
 ```
 
 ### Schema Methods
@@ -1360,6 +1403,7 @@ const userSchema = s.object({
 | Bundle size | ~13 KB | ~1.4 KB (core), ~4 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
+| Coerce | `z.coerce.number()` | `s.coerce.number()` |
 
 **Migration Tips:**
 

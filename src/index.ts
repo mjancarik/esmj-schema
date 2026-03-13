@@ -641,6 +641,62 @@ export const s = {
 
     return schema as LiteralSchemaInterface<T>;
   },
+  /**
+   * Coerce schemas that apply a native JS constructor before validation.
+   * Unlike `s.preprocess`, coerce provides a consistent API for common type
+   * conversions with clear error messages when coercion produces an invalid result.
+   *
+   * @example
+   * ```typescript
+   * s.coerce.number().parse('42');       // 42
+   * s.coerce.string().parse(123);        // '123'
+   * s.coerce.boolean().parse(0);         // false
+   * s.coerce.date().parse('2024-01-01'); // Date object
+   * ```
+   */
+  coerce: {
+    /**
+     * Creates a string schema that coerces input using `String(value)`.
+     * Always succeeds — `String()` never produces an invalid string.
+     */
+    string(options?: SchemaInterfaceOptions): StringSchemaInterface {
+      return s.preprocess((v: unknown) => String(v), s.string(options));
+    },
+    /**
+     * Creates a number schema that coerces input using `Number(value)`.
+     * Fails when the result is `NaN` (e.g. `'bad'`, `undefined`, plain objects).
+     */
+    number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
+      const message =
+        options?.message ??
+        ((v: unknown) => `Cannot coerce "${v}" to a valid number.`);
+      return s.preprocess(
+        (v: unknown) => Number(v),
+        s.number({ ...options, message }),
+      );
+    },
+    /**
+     * Creates a boolean schema that coerces input using `Boolean(value)`.
+     * Always succeeds — `Boolean()` always produces `true` or `false`.
+     * Note: `Boolean('false')` is `true` because `'false'` is a non-empty string.
+     */
+    boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
+      return s.preprocess((v: unknown) => Boolean(v), s.boolean(options));
+    },
+    /**
+     * Creates a date schema that coerces input using `new Date(value)`.
+     * Fails when the result is an invalid Date (e.g. `'garbage'`).
+     */
+    date(options?: SchemaInterfaceOptions): DateSchemaInterface {
+      const message =
+        options?.message ??
+        ((v: unknown) => `Cannot coerce "${v}" to a valid date.`);
+      return s.preprocess(
+        (v: unknown) => new Date(v as string | number | Date),
+        s.date({ ...options, message }),
+      );
+    },
+  },
 };
 
 function errorMessageFactory(type: string): (value: unknown) => string {
