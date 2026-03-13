@@ -660,7 +660,7 @@ export const s = {
      * Always succeeds — `String()` never produces an invalid string.
      */
     string(options?: SchemaInterfaceOptions): StringSchemaInterface {
-      return s.preprocess((v: unknown) => String(v), s.string(options));
+      return s.preprocess((value: unknown) => String(value), s.string(options));
     },
     /**
      * Creates a number schema that coerces input using `Number(value)`.
@@ -669,9 +669,9 @@ export const s = {
     number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
       const message =
         options?.message ??
-        ((v: unknown) => `Cannot coerce "${v}" to a valid number.`);
+        ((value: unknown) => `Cannot coerce "${value}" to a valid number.`);
       return s.preprocess(
-        (v: unknown) => Number(v),
+        (value: unknown) => Number(value),
         s.number({ ...options, message }),
       );
     },
@@ -681,7 +681,10 @@ export const s = {
      * Note: `Boolean('false')` is `true` because `'false'` is a non-empty string.
      */
     boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
-      return s.preprocess((v: unknown) => Boolean(v), s.boolean(options));
+      return s.preprocess(
+        (value: unknown) => Boolean(value),
+        s.boolean(options),
+      );
     },
     /**
      * Creates a date schema that coerces input using `new Date(value)`.
@@ -690,11 +693,208 @@ export const s = {
     date(options?: SchemaInterfaceOptions): DateSchemaInterface {
       const message =
         options?.message ??
-        ((v: unknown) => `Cannot coerce "${v}" to a valid date.`);
+        ((value: unknown) => `Cannot coerce "${value}" to a valid date.`);
       return s.preprocess(
-        (v: unknown) => new Date(v as string | number | Date),
+        (value: unknown) => new Date(value as string | number | Date),
         s.date({ ...options, message }),
       );
+    },
+  },
+  /**
+   * Smart cast schemas that apply semantic conversion before validation.
+   * Unlike `s.coerce` (which uses raw JS constructors), `s.cast` understands
+   * common programmer-friendly string representations and rejects ambiguous
+   * inputs such as `null`, `undefined`, and empty strings.
+   *
+   * Differences from `s.coerce`:
+   * - `cast.boolean('false')` → `false` (coerce gives `true` — non-empty string)
+   * - `cast.boolean('yes'/'no'/'on'/'off')` → `true`/`false` (coerce doesn't understand these)
+   * - `cast.number(null)` → throws (coerce gives `0`)
+   * - `cast.number('')` → throws (coerce gives `0`)
+   * - `cast.string(null)` → throws (coerce gives `'null'`)
+   * - `cast.date(null)` → throws (coerce gives epoch Date)
+   *
+   * @example
+   * ```typescript
+   * s.cast.boolean().parse('false');  // false — unlike coerce!
+   * s.cast.boolean().parse('yes');    // true
+   * s.cast.boolean().parse('on');     // true
+   * s.cast.number().parse(' 42 ');   // 42 — trims whitespace
+   * s.cast.number().parse(null);      // throws
+   * s.cast.string().parse(123);       // '123'
+   * s.cast.string().parse(null);      // throws — unlike coerce!
+   * s.cast.date().parse('2024-01-01'); // Date object
+   * s.cast.date().parse(null);         // throws — unlike coerce!
+   * ```
+   */
+  cast: {
+    /**
+     * Creates a boolean schema with semantic string casting.
+     * Recognises (case-insensitive): `'true'/'false'`, `'yes'/'no'`, `'on'/'off'`, `'1'/'0'`.
+     * Numbers `1` and `0` are accepted; any other number throws.
+     * `null`, `undefined`, and unrecognised strings throw.
+     */
+    boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
+      const message =
+        options?.message ??
+        ((value: unknown) =>
+          `Cannot cast "${value}" to boolean. Accepted: true/false, 1/0, yes/no, on/off.`);
+      return s.preprocess(
+        (value: unknown) => {
+          let lower: string | undefined;
+
+          if (stringValidation(value)) {
+            lower = value.toLowerCase();
+          }
+
+          if (
+            lower === 'true' ||
+            lower === 'yes' ||
+            lower === 'on' ||
+            lower === '1' ||
+            value === 1
+          ) {
+            return true;
+          }
+
+          if (
+            lower === 'false' ||
+            lower === 'no' ||
+            lower === 'off' ||
+            lower === '0' ||
+            value === 0
+          ) {
+            return false;
+          }
+
+          return value; // will fail booleanValidation → emits custom message
+        },
+        s.boolean({ ...options, message }),
+      );
+    },
+    /**
+     * Creates a number schema with smart string parsing.
+     * Trims whitespace from strings before converting. Accepts booleans (`true`→1, `false`→0).
+     * Rejects `null`, `undefined`, empty/whitespace-only strings, and non-numeric strings.
+     */
+    number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
+      const message =
+        options?.message ??
+        ((value: unknown) =>
+          `Cannot cast "${value}" to a number. Expected a numeric string or number.`);
+      return s.preprocess(
+        (value: unknown) => {
+          if (booleanValidation(value)) {
+            return Number(value);
+          }
+
+          if (stringValidation(value)) {
+            const trimmed = value.trim();
+
+            if (trimmed === '') {
+              return value; // will fail numberValidation → emits custom message
+            }
+
+            const number = Number(trimmed);
+            if (Number.isFinite(number)) {
+              return number;
+            }
+          }
+
+          return value;
+        },
+        s.number({ ...options, message }),
+      );
+    },
+    /**
+     * Creates a string schema that accepts strings, finite numbers, and booleans.
+     * Rejects `null`, `undefined`, objects, arrays, `NaN`, and `Infinity`.
+     */
+    string(options?: SchemaInterfaceOptions): StringSchemaInterface {
+      const message =
+        options?.message ??
+        ((value: unknown) =>
+          `Cannot cast "${value}" to string. Expected a string, number, or boolean.`);
+      return s.preprocess(
+        (value: unknown) => {
+          if (
+            booleanValidation(value) ||
+            (numberValidation(value) && Number.isFinite(value))
+          ) {
+            return String(value);
+          }
+
+          return value;
+        },
+        s.string({ ...options, message }),
+      );
+    },
+    /**
+     * Creates a date schema with controlled casting.
+     * Accepts ISO date strings (non-empty), finite integer timestamps, and existing Date objects.
+     * Rejects `null`, `undefined`, booleans, empty strings, and non-finite numbers.
+     */
+    date(options?: SchemaInterfaceOptions): DateSchemaInterface {
+      const message =
+        options?.message ??
+        ((value: unknown) => `Cannot cast "${value}" to a valid date.`);
+      return s.preprocess(
+        (value: unknown) => {
+          let string: string | undefined;
+
+          if (stringValidation(value)) {
+            string = value.trim();
+          }
+
+          if ((numberValidation(value) && Number.isFinite(value)) || string) {
+            return new Date((string ?? value) as string | number);
+          }
+
+          return value;
+        },
+        s.date({ ...options, message }),
+      );
+    },
+    /**
+     * Parses a JSON string and validates the result against the provided schema.
+     * If the input is not a string, it is passed directly to the inner schema.
+     * Produces a proper validation failure (never throws) when the JSON is malformed.
+     *
+     * @param schema - Schema to validate the parsed value against
+     * @param options - Optional configuration (name, message)
+     * @returns The same schema type, with JSON string preprocessing applied
+     *
+     * @example
+     * ```typescript
+     * const schema = s.cast.json(s.object({ name: s.string() }));
+     * schema.parse('{"name":"Alice"}'); // { name: 'Alice' }
+     * schema.parse({ name: 'Alice' });  // { name: 'Alice' } — pass-through
+     * schema.safeParse('not json');     // { success: false, error: ... }
+     * ```
+     */
+    json<T extends SchemaType>(schema: T, options?: SchemaInterfaceOptions): T {
+      const message =
+        options?.message ??
+        ((value: unknown) => `Cannot parse "${value}" as JSON.`);
+      hookOriginal(
+        schema,
+        '_parse',
+        (originalParse: Function, value: unknown) => {
+          if (stringValidation(value)) {
+            try {
+              value = JSON.parse(value);
+            } catch {
+              const error = {
+                message:
+                  typeof message === 'function' ? message(value) : message,
+              };
+              return { success: false, error, errors: [error] };
+            }
+          }
+          return originalParse(value);
+        },
+      );
+      return schema;
     },
   },
 };
@@ -1183,3 +1383,5 @@ export function extend(callback: ExtenderType) {
  * ```
  */
 export type Infer<T> = T extends SchemaType ? ReturnType<T['parse']> : unknown;
+
+export { s as schema };

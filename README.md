@@ -17,6 +17,8 @@ This small library provides a simple schema validation system for JavaScript/Typ
   - [Full Extensions](#full-extensions-esmjschemafull)
 - [API Reference Summary](#api-reference-summary)
 - [Schema Types](#schema-types)
+  - [s.coerce](#scoerce)
+  - [s.cast](#scast)
 - [Schema Methods](#schema-methods)
   - [parse](#parsevalue-parseoptions)
   - [safeParse](#safeparsevalue-parseoptions)
@@ -449,6 +451,16 @@ const schema = s.object({
 - `s.coerce.boolean()` - Coerce any value to boolean, then validate
 - `s.coerce.date()` - Coerce any value to Date, then validate (fails for invalid dates)
 
+### Cast
+
+Semantic casting that understands common string representations and rejects ambiguous inputs:
+
+- `s.cast.boolean()` - Cast to boolean; understands `'true'/'false'`, `'yes'/'no'`, `'on'/'off'`, `'1'/'0'` (case-insensitive); rejects `null`/`undefined`/unrecognised strings
+- `s.cast.number()` - Cast to number; trims whitespace from strings, accepts booleans (`true`→1, `false`→0); rejects `null`/`undefined`/empty strings
+- `s.cast.string()` - Cast to string; accepts strings, finite numbers, and booleans; rejects `null`/`undefined`/objects/`NaN`/`Infinity`
+- `s.cast.date()` - Cast to Date; accepts ISO strings, finite timestamps, and existing Dates; rejects `null`/`undefined`/booleans/empty strings
+- `s.cast.json(schema)` - Parse a JSON string and validate the result against a schema; non-string inputs pass through directly; malformed JSON returns a proper validation failure
+
 ### Transformations
 
 - `.transform(fn)` - Transform value
@@ -771,6 +783,83 @@ s.coerce.number().refine((v) => v > 0, { message: 'Must be positive' }).parse('5
 
 // Custom error message:
 s.coerce.number({ message: 'Expected a numeric value' }).parse('bad'); // throws: Expected a numeric value
+```
+
+#### `s.cast`
+
+Programmer-friendly semantic casting. Unlike `s.coerce` (raw JS constructors), `s.cast` understands
+common string representations and rejects ambiguous inputs like `null`, `undefined`, and empty strings.
+
+| Method | Accepted inputs | Rejects |
+|---|---|---|
+| `s.cast.string(options?)` | strings, finite numbers, booleans | `null`, `undefined`, objects, `NaN`, `Infinity` |
+| `s.cast.number(options?)` | numbers (incl. booleans `true`/`false`→1/0), trimmed numeric strings | `null`, `undefined`, empty strings, non-numeric strings |
+| `s.cast.boolean(options?)` | booleans, `1`/`0`, `'true'/'false'`, `'yes'/'no'`, `'on'/'off'`, `'1'/'0'` | `null`, `undefined`, unrecognised strings, other numbers |
+| `s.cast.date(options?)` | `Date` objects, ISO strings, finite integer timestamps | `null`, `undefined`, booleans, empty strings, invalid date strings |
+| `s.cast.json(schema, options?)` | JSON strings (parsed), any non-string value (pass-through) | malformed JSON strings |
+
+**Key differences from `s.coerce`:**
+
+| Input | `s.coerce.boolean()` | `s.cast.boolean()` |
+|---|---|---|
+| `'false'` | `true` (non-empty string!) | `false` |
+| `'yes'` / `'no'` | `true` / `true` | `true` / `false` |
+| `null` | `false` | throws |
+
+| Input | `s.coerce.number()` | `s.cast.number()` |
+|---|---|---|
+| `null` | `0` | throws |
+| `''` | `0` | throws |
+
+| Input | `s.coerce.string()` | `s.cast.string()` |
+|---|---|---|
+| `null` | `'null'` | throws |
+| `undefined` | `'undefined'` | throws |
+
+```typescript
+// boolean
+s.cast.boolean().parse('false');     // false — unlike coerce!
+s.cast.boolean().parse('yes');       // true
+s.cast.boolean().parse('on');        // true
+s.cast.boolean().parse('OFF');       // false (case-insensitive)
+s.cast.boolean().parse(1);           // true
+s.cast.boolean().parse(0);           // false
+s.cast.boolean().parse('hello');     // throws: Cannot cast "hello" to boolean...
+s.cast.boolean().parse(null);        // throws
+
+// number
+s.cast.number().parse('42');         // 42
+s.cast.number().parse(' 3.14 ');     // 3.14 — trims whitespace
+s.cast.number().parse(true);         // 1
+s.cast.number().parse(false);        // 0
+s.cast.number().parse(null);         // throws: Cannot cast "null" to a number...
+s.cast.number().parse('');           // throws
+
+// string
+s.cast.string().parse(123);          // '123'
+s.cast.string().parse(true);         // 'true'
+s.cast.string().parse(false);        // 'false'
+s.cast.string().parse(null);         // throws: Cannot cast "null" to string...
+s.cast.string().parse(NaN);          // throws
+
+// date
+s.cast.date().parse('2024-01-01');   // Date object
+s.cast.date().parse(1704067200000);  // Date object
+s.cast.date().parse(null);           // throws: Cannot cast "null" to a valid date.
+s.cast.date().parse(true);           // throws
+
+// All schema methods chain normally:
+s.cast.number().refine((v) => v > 0, { message: 'Must be positive' }).parse('5'); // 5
+
+// Custom error message:
+s.cast.boolean({ message: 'Must be a boolean flag' }).parse('maybe'); // throws: Must be a boolean flag
+
+// json
+s.cast.json(s.object({ name: s.string() })).parse('{"name":"Alice"}'); // { name: 'Alice' }
+s.cast.json(s.array(s.number())).parse('[1,2,3]');                     // [1, 2, 3]
+s.cast.json(s.object({ name: s.string() })).parse({ name: 'Alice' }); // { name: 'Alice' } — pass-through
+s.cast.json(s.number()).safeParse('not json');                         // { success: false, error: ... }
+s.cast.json(s.number(), { message: 'Invalid JSON' }).parse('bad');     // throws: Invalid JSON
 ```
 
 ### Schema Methods
@@ -1404,6 +1493,7 @@ const userSchema = s.object({
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |
+| Smart cast | No direct equivalent | `s.cast.number()` — rejects nulls, understands `'yes'/'no'`, etc. |
 
 **Migration Tips:**
 
