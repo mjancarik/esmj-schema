@@ -1,3 +1,11 @@
+## <small>0.7.2 (2026-03-13)</small>
+
+* feat: 🎸 add s.cast namespace for programmer-friendly coercion ([f2a984b](https://github.com/mjancarik/esmj-schema/commit/f2a984b))
+* feat: 🎸 add s.coerce namespace for type coercion ([98bb3a5](https://github.com/mjancarik/esmj-schema/commit/98bb3a5))
+* docs: ✏️ update library size ([c8381d3](https://github.com/mjancarik/esmj-schema/commit/c8381d3))
+
+
+
 ## <small>0.7.1 (2026-03-13)</small>
 
 * feat: 🎸 add catch() method for fallback on parse failure ([9c58f06](https://github.com/mjancarik/esmj-schema/commit/9c58f06))
