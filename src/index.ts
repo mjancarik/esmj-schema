@@ -49,6 +49,11 @@ export interface SchemaInterface<Input, Output> {
   default(
     defaultValue: Partial<Input> | (() => Partial<Input>) | Partial<Output>,
   ): SchemaInterface<Input, Output>;
+  catch(
+    catchValue:
+      | Output
+      | ((ctx: { input: unknown; error: ErrorStructure }) => Output),
+  ): SchemaInterface<Input, Output>;
   pipe<NewOutput>(
     schema: SchemaInterface<Output, NewOutput>,
   ): SchemaInterface<Output, NewOutput>;
@@ -907,6 +912,51 @@ function createSchemaInterface<Input, Output>(
         return originalParse(value, parseOptions) as InternalParseOutput<
           Partial<typeof value>
         >;
+      });
+
+      return this;
+    },
+    /**
+     * Provides a fallback value when parsing fails for any reason.
+     * Unlike `default()` which only fires for `undefined` inputs, `catch()` fires
+     * on any validation failure and returns the fallback as a successful result.
+     *
+     * @param catchValue - The fallback value, or a function receiving `{ input, error }` that returns the fallback
+     * @returns The schema with catch fallback applied
+     *
+     * @example
+     * ```typescript
+     * const schema = s.string().catch('fallback');
+     * schema.parse(123);       // 'fallback'
+     * schema.parse('hello');   // 'hello'
+     *
+     * // With function receiving context
+     * const schema2 = s.number().catch((ctx) => {
+     *   console.warn('Parse failed:', ctx.error.message, 'for input:', ctx.input);
+     *   return 0;
+     * });
+     * ```
+     */
+    catch(catchValue) {
+      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+        const item = originalParse(value, parseOptions);
+
+        if (!item.success) {
+          return {
+            success: true,
+            data:
+              typeof catchValue === 'function'
+                ? (
+                    catchValue as (ctx: {
+                      input: unknown;
+                      error: ErrorStructure;
+                    }) => Output
+                  )({ input: value, error: (item as Invalid).error })
+                : catchValue,
+          };
+        }
+
+        return item;
       });
 
       return this;

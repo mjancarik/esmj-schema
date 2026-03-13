@@ -440,6 +440,7 @@ const schema = s.object({
 - `.nullable()` - Makes field nullable
 - `.nullish()` - Makes field optional and nullable
 - `.default(value)` - Sets default value
+- `.catch(value)` - Returns fallback value on any parse failure
 
 ### Transformations
 
@@ -798,6 +799,35 @@ Sets a default value for the schema.
 
 ```typescript
 const defaultSchema = stringSchema.default('default value');
+```
+
+#### `catch(catchValue)`
+
+Returns a fallback value whenever parsing fails, instead of throwing or returning an error.
+Unlike `default()` which only fires when the input is `undefined`, `catch()` fires on **any** validation failure.
+
+The fallback can be a static value or a function that receives a context object `{ input, error }`:
+- `input` — the original raw input value
+- `error` — the `ErrorStructure` with the failure message
+
+**Note:** The fallback value is returned as-is without re-validation. `catch()` only intercepts failures from schemas and refinements placed **before** it in the chain.
+
+```typescript
+// Static fallback
+const schema = s.string().catch('unknown');
+schema.parse(123);       // 'unknown'
+schema.parse('hello');   // 'hello'
+
+// Function fallback with context
+const schema2 = s.number().catch((ctx) => {
+  console.warn(`Invalid input: ${ctx.input} — ${ctx.error.message}`);
+  return 0;
+});
+schema2.parse('bad');    // 0
+
+// Distinction from default()
+s.string().catch('fallback').parse(null);    // 'fallback' — catch fires for null
+s.string().default('fallback').parse(null);  // throws — default does not fire for null
 ```
 
 #### `transform(callback)`
@@ -1388,4 +1418,3 @@ const userSchema = s.object({
 ## License
 
 MIT
-
