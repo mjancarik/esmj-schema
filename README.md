@@ -117,7 +117,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library           | Bundle Size (minified + gzipped) |
 |-------------------|---------------------------------|
-| `@esmj/schema`    | `~1.5 KB`                       |
+| `@esmj/schema`    | `~1.6 KB`                       |
 | Superstruct       | ~3.2 KB                         |
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
