@@ -5,5 +5,4 @@ src/work-in-progress.ts
 .idea
 .history
 .vscode/
-package-lock.json
 .DS_Store
