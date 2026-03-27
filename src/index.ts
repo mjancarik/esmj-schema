@@ -28,7 +28,7 @@ interface ParseOptions {
 
 // @TODO Partial<Input> should be used only for optional schema keys
 export interface SchemaInterface<Input, Output> {
-  _getName(): string;
+  _getName(): undefined | string;
   _getType(): string;
   _getDescription(): string;
   _parse(
@@ -432,9 +432,9 @@ export const s = {
     definition: Readonly<Array<string>>,
     options?: SchemaInterfaceOptions,
   ): EnumSchemaInterface<(typeof definition)[number]> {
-    const validation = (value) => definition.includes(value);
+    const validation = (value: unknown) => definition.includes(value as string);
 
-    const message = (value) =>
+    const message = (value: unknown) =>
       `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
     const type = 'enum';
 
@@ -600,7 +600,7 @@ export const s = {
     definitions: T,
     options?: SchemaInterfaceOptions,
   ): UnionSchemaInterface<T> {
-    const message = (value) =>
+    const message = (value: unknown) =>
       `Invalid union value. Expected the value to match one of the schemas:${definitions
         .map(
           (definition, idx) => ` ${idx + 1}. ${definition._getDescription()}`,
@@ -609,7 +609,7 @@ export const s = {
         objectValidation(value) ? JSON.stringify(value) : `"${value}"`
       }`;
 
-    const validation = (value) => {
+    const validation = (value: unknown) => {
       for (let index = 0; index < definitions.length; index++) {
         const result = (
           definitions[index]._parse as (
@@ -1088,7 +1088,10 @@ function createSchemaInterface<Input, Output>(
         return item;
       });
 
-      return this;
+      return this as unknown as SchemaInterface<
+        Input,
+        ReturnType<typeof callback>
+      >;
     },
     /**
      * Makes the schema optional, allowing undefined values.
@@ -1195,9 +1198,10 @@ function createSchemaInterface<Input, Output>(
             typeof defaultValue === 'function' ? defaultValue() : defaultValue;
         }
 
-        return originalParse(value, parseOptions) as InternalParseOutput<
-          Partial<typeof value>
-        >;
+        return originalParse(
+          value,
+          parseOptions,
+        ) as InternalParseOutput<Output>;
       });
 
       return this;
@@ -1277,7 +1281,7 @@ function createSchemaInterface<Input, Output>(
         );
       });
 
-      return this;
+      return this as unknown as typeof schema;
     },
     /**
      * Adds custom validation logic to the schema.

@@ -61,9 +61,9 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.length >= length, {
         message:
           message ||
-          ((value: string) =>
-            `String must be at least ${length} characters long (received ${value.length} characters: "${value}")`),
-      });
+          ((value: unknown) =>
+            `String must be at least ${length} characters long (received ${(value as string).length} characters: "${value}")`),
+      }) as unknown as StringSchemaInterface;
     };
 
     stringSchema.max = function (
@@ -73,9 +73,9 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.length <= length, {
         message:
           message ||
-          ((value: string) =>
-            `String must be at most ${length} characters long (received ${value.length} characters: "${value}")`),
-      });
+          ((value: unknown) =>
+            `String must be at most ${length} characters long (received ${(value as string).length} characters: "${value}")`),
+      }) as unknown as StringSchemaInterface;
     };
 
     stringSchema.length = function (
@@ -85,9 +85,9 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.length === length, {
         message:
           message ||
-          ((value: string) =>
-            `String must be exactly ${length} characters long (received ${value.length} characters: "${value}")`),
-      });
+          ((value: unknown) =>
+            `String must be exactly ${length} characters long (received ${(value as string).length} characters: "${value}")`),
+      }) as unknown as StringSchemaInterface;
     };
 
     stringSchema.nonEmpty = function ({
@@ -95,7 +95,7 @@ extend((schema: SchemaType, _, options) => {
     }: SchemaInterfaceOptions = {}) {
       return this.refine((value) => value.length > 0, {
         message: message || 'String must not be empty (received empty string)',
-      });
+      }) as unknown as StringSchemaInterface;
     };
 
     // String pattern validations
@@ -106,9 +106,9 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.startsWith(prefix), {
         message:
           message ||
-          ((value: string) =>
+          ((value: unknown) =>
             `String must start with "${prefix}" (received: "${value}")`),
-      });
+      }) as unknown as StringSchemaInterface;
     };
 
     stringSchema.endsWith = function (
@@ -118,9 +118,9 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.endsWith(suffix), {
         message:
           message ||
-          ((value: string) =>
+          ((value: unknown) =>
             `String must end with "${suffix}" (received: "${value}")`),
-      });
+      }) as unknown as StringSchemaInterface;
     };
 
     stringSchema.includes = function (
@@ -130,34 +130,46 @@ extend((schema: SchemaType, _, options) => {
       return this.refine((value) => value.includes(substring), {
         message:
           message ||
-          ((value: string) =>
+          ((value: unknown) =>
             `String must include "${substring}" (received: "${value}")`),
-      });
+      }) as unknown as StringSchemaInterface;
     };
 
     // String transformations
     stringSchema.toLowerCase = function () {
-      return this.transform((value) => value.toLowerCase());
+      return this.transform((value) =>
+        value.toLowerCase(),
+      ) as unknown as StringSchemaInterface;
     };
 
     stringSchema.toUpperCase = function () {
-      return this.transform((value) => value.toUpperCase());
+      return this.transform((value) =>
+        value.toUpperCase(),
+      ) as unknown as StringSchemaInterface;
     };
 
     stringSchema.trim = function () {
-      return this.transform((value) => value.trim());
+      return this.transform((value) =>
+        value.trim(),
+      ) as unknown as StringSchemaInterface;
     };
 
     stringSchema.padStart = function (length, fillChar = ' ') {
-      return this.transform((value) => value.padStart(length, fillChar));
+      return this.transform((value) =>
+        value.padStart(length, fillChar),
+      ) as unknown as StringSchemaInterface;
     };
 
     stringSchema.padEnd = function (length, fillChar = ' ') {
-      return this.transform((value) => value.padEnd(length, fillChar));
+      return this.transform((value) =>
+        value.padEnd(length, fillChar),
+      ) as unknown as StringSchemaInterface;
     };
 
     stringSchema.replace = function (search, replace) {
-      return this.transform((value) => value.replace(search, replace));
+      return this.transform((value) =>
+        value.replace(search, replace),
+      ) as unknown as StringSchemaInterface;
     };
   }
 

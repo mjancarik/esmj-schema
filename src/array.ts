@@ -45,7 +45,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length >= length, {
         message: message || `Array must contain at least ${length} items.`,
-      });
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.max = function (
@@ -54,7 +54,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length <= length, {
         message: message || `Array must contain at most ${length} items.`,
-      });
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.length = function (
@@ -63,13 +63,13 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length === length, {
         message: message || `Array must contain exactly ${length} items.`,
-      });
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.nonEmpty = function ({ message }: SchemaInterfaceOptions = {}) {
       return this.refine((arr) => arr.length > 0, {
         message: message || 'Array must not be empty.',
-      });
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     // Array content validations
@@ -93,16 +93,20 @@ extend((schema: SchemaType, _, options) => {
         {
           message: message || 'Array items must be unique.',
         },
-      );
+      ) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     // Array transformations
     arraySchema.sort = function () {
-      return this.transform((arr) => [...arr].sort());
+      return this.transform((arr) =>
+        [...arr].sort(),
+      ) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.reverse = function () {
-      return this.transform((arr) => [...arr].reverse());
+      return this.transform((arr) =>
+        [...arr].reverse(),
+      ) as unknown as ArraySchemaInterface<SchemaType>;
     };
   }
 

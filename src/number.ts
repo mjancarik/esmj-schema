@@ -38,7 +38,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((num) => num >= value, {
         message: message || `Number must be greater than or equal to ${value}.`,
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.max = function (
@@ -47,7 +47,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((num) => num <= value, {
         message: message || `Number must be less than or equal to ${value}.`,
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.positive = function ({
@@ -55,7 +55,7 @@ extend((schema: SchemaType, _, options) => {
     }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => num > 0, {
         message: message || 'Number must be positive.',
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.negative = function ({
@@ -63,13 +63,13 @@ extend((schema: SchemaType, _, options) => {
     }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => num < 0, {
         message: message || 'Number must be negative.',
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.int = function ({ message }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => Number.isInteger(num), {
         message: message || 'Number must be an integer.',
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.float = function ({ message }: SchemaInterfaceOptions = {}) {
@@ -78,7 +78,7 @@ extend((schema: SchemaType, _, options) => {
         {
           message: message || 'Number must be a floating point (non-integer).',
         },
-      );
+      ) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.multipleOf = function (
@@ -87,13 +87,13 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((num) => num % value === 0, {
         message: message || `Number must be a multiple of ${value}.`,
-      });
+      }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.finite = function ({ message }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => Number.isFinite(num), {
         message: message || 'Number must be finite.',
-      });
+      }) as unknown as NumberSchemaInterface;
     };
   }
 
