@@ -1,3 +1,11 @@
+## <small>0.7.3 (2026-03-27)</small>
+
+* chore: 🤖 fix TS types for typescript@6 ([dfe63df](https://github.com/mjancarik/esmj-schema/commit/dfe63df))
+* chore: 🤖 update dependencies ([37b8be9](https://github.com/mjancarik/esmj-schema/commit/37b8be9))
+* ci: 🎡 return back npm install ([2fb75d6](https://github.com/mjancarik/esmj-schema/commit/2fb75d6))
+* ci: 🎡 update versions ([8e6321c](https://github.com/mjancarik/esmj-schema/commit/8e6321c))
+* ci: 🎡 use package-lock files ([9d0d43d](https://github.com/mjancarik/esmj-schema/commit/9d0d43d))
+* feat: 🎸 add function type to schema ([768d97e](https://github.com/mjancarik/esmj-schema/commit/768d97e))
 ## <small>0.7.2 (2026-03-13)</small>
 
 * feat: 🎸 add s.cast namespace for programmer-friendly coercion ([f2a984b](https://github.com/mjancarik/esmj-schema/commit/f2a984b))
