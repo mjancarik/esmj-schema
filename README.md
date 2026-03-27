@@ -426,6 +426,7 @@ const schema = s.object({
 - `s.number()` - Number validation
 - `s.boolean()` - Boolean validation
 - `s.date()` - Date validation
+- `s.function()` - Function validation
 - `s.object(def)` - Object validation
 - `s.array(def)` - Array validation
 - `s.literal(value)` - Literal value validation
@@ -587,6 +588,27 @@ const dateSchema = s.date({
 
 const dateSchemaFunc = s.date({
   message: (value) => `Custom error: "${value}" is not a valid date.`,
+});
+```
+
+#### `s.function(options?)`
+
+Creates a function schema that validates the value is callable.
+
+- **`message`**: Can be either a constant string or a function `(value) => string`.
+
+```typescript
+const callbackSchema = s.function();
+callbackSchema.parse(() => {});        // () => {}
+callbackSchema.parse(async () => {});  // async () => {}
+callbackSchema.parse('hello');         // throws
+
+const callbackSchemaMsg = s.function({
+  message: 'Expected a callback function.',
+});
+
+const callbackSchemaFunc = s.function({
+  message: (value) => `Custom error: "${value}" is not a function.`,
 });
 ```
 

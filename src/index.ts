@@ -80,6 +80,9 @@ export interface NumberSchemaInterface
 export interface BooleanSchemaInterface
   extends SchemaInterface<boolean, boolean> {}
 export interface DateSchemaInterface extends SchemaInterface<Date, Date> {}
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export interface FunctionSchemaInterface
+  extends SchemaInterface<Function, Function> {}
 export interface ArraySchemaInterface<T extends SchemaType>
   extends SchemaInterface<
     Array<ReturnType<T['parse']>>,
@@ -121,6 +124,8 @@ export type SchemaType =
   | SchemaInterface<Date, Date | undefined>
   | SchemaInterface<Date, Date | null>
   | SchemaInterface<Date, Date | undefined | null>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  | FunctionSchemaInterface
   | EnumSchemaInterface<string>
   | UnionSchemaInterface<Array<SchemaInterface<unknown, unknown>>>
 
@@ -205,6 +210,10 @@ const booleanValidation = (value: unknown): value is boolean =>
 
 const dateValidation = (value: unknown): value is Date =>
   value instanceof Date && !Number.isNaN(value.getTime());
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+const functionValidation = (value: unknown): value is Function =>
+  typeof value === 'function';
 
 const arrayValidation = (value: unknown): value is unknown[] =>
   Array.isArray(value);
@@ -384,6 +393,27 @@ export const s = {
       ...options,
       type: 'date',
     }) as DateSchemaInterface;
+  },
+  /**
+   * Creates a function schema that validates the value is callable.
+   *
+   * @param options - Optional configuration (name, message)
+   * @returns Function schema interface
+   *
+   * @example
+   * ```typescript
+   * const callbackSchema = s.function();
+   * callbackSchema.parse(() => {}); // () => {}
+   * callbackSchema.parse('hello');  // throws
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  function(options?: SchemaInterfaceOptions): FunctionSchemaInterface {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    return createSchemaInterface<Function, Function>(functionValidation, {
+      ...options,
+      type: 'function',
+    }) as FunctionSchemaInterface;
   },
   /**
    * Creates an enum schema with predefined values.
