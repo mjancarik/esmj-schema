@@ -49,6 +49,10 @@
     }
   },
   "sideEffects": [
+    "./src/string.ts",
+    "./src/number.ts",
+    "./src/array.ts",
+    "./src/full.ts",
     "./dist/string.mjs", "./dist/string.cjs",
     "./dist/number.mjs", "./dist/number.cjs",
     "./dist/array.mjs", "./dist/array.cjs",

@@ -220,712 +220,492 @@ const arrayValidation = (value: unknown): value is unknown[] =>
 const objectValidation = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export const s = {
-  /**
-   * Creates an object schema with validated fields.
-   *
-   * @param definition - Object containing field schemas
-   * @param options - Optional configuration (name, message)
-   * @returns Object schema interface
-   *
-   * @example
-   * ```typescript
-   * const userSchema = s.object({
-   *   name: s.string(),
-   *   age: s.number()
-   * });
-   * ```
-   */
-  object<T extends Record<string, SchemaType>>(
-    definition: {
-      [Property in keyof T]: T[Property];
-    },
-    options?: SchemaInterfaceOptions,
-  ): ObjectSchemaInterface<T> {
-    const schema = createSchemaInterface<
-      { [Property in keyof T]: ReturnType<T[Property]['parse']> },
-      { [Property in keyof T]: ReturnType<T[Property]['parse']> }
-    >(objectValidation, {
-      ...options,
-      type: 'object',
-    });
+export function object<T extends Record<string, SchemaType>>(
+  definition: {
+    [Property in keyof T]: T[Property];
+  },
+  options?: SchemaInterfaceOptions,
+): ObjectSchemaInterface<T> {
+  const schema = createSchemaInterface<
+    { [Property in keyof T]: ReturnType<T[Property]['parse']> },
+    { [Property in keyof T]: ReturnType<T[Property]['parse']> }
+  >(objectValidation, {
+    ...options,
+    type: 'object',
+  });
 
-    // Add a more detailed description for object schemas
-    schema._getDescription = () => {
-      const fieldDescriptions = Object.entries(definition)
-        .map(
-          ([key, schema]) =>
-            `${key}: ${(schema as SchemaInterface<unknown, unknown>)._getDescription()}`,
-        )
-        .join(', ');
-      return `object({ ${fieldDescriptions} })`;
-    };
+  // Add a more detailed description for object schemas
+  schema._getDescription = () => {
+    const fieldDescriptions = Object.entries(definition)
+      .map(
+        ([key, schema]) =>
+          `${key}: ${(schema as SchemaInterface<unknown, unknown>)._getDescription()}`,
+      )
+      .join(', ');
+    return `object({ ${fieldDescriptions} })`;
+  };
 
-    hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
-      const value = originalParse(data, parseOptions);
-      const { abortEarly } = resolveParseOptions(
-        parseOptions as ParseOptions | undefined,
-      );
+  hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+    const value = originalParse(data, parseOptions);
+    const { abortEarly } = resolveParseOptions(
+      parseOptions as ParseOptions | undefined,
+    );
 
-      if (value.success === false) {
-        return value;
+    if (value.success === false) {
+      return value;
+    }
+
+    const acc = {} as Record<string, unknown>;
+    const errors: ErrorStructure[] = [];
+
+    // Note: Using for...in is actually faster than Object.keys() in V8
+    // despite common belief. Benchmarks show 15% better performance.
+    for (const key in definition) {
+      let item = (
+        definition[key]._parse as (
+          value: unknown,
+          parseOptions?: ParseOptions,
+        ) => InternalParseOutput<unknown>
+      )(value.data[key], parseOptions as ParseOptions | undefined);
+
+      if (item.success) {
+        acc[key] = item.data;
+      } else {
+        item = item as Invalid;
+
+        if (abortEarly !== false) {
+          const formattedError = formatError(item.error, key);
+          return {
+            success: false,
+            error: formattedError,
+            errors: [formattedError],
+          };
+        }
+
+        propagateNestedErrors(item, errors, key);
       }
+    }
 
-      const acc = {} as Record<string, unknown>;
-      const errors: ErrorStructure[] = [];
+    if (errors.length > 0) {
+      return {
+        success: false,
+        error: errors[0], // First error as the main error
+        errors,
+      };
+    }
 
-      // In object validation:
-      // Note: Using for...in is actually faster than Object.keys() in V8
-      // despite common belief. Benchmarks show 15% better performance.
-      for (const key in definition) {
-        let item = (
-          definition[key]._parse as (
-            value: unknown,
-            parseOptions?: ParseOptions,
-          ) => InternalParseOutput<unknown>
-        )(value.data[key], parseOptions as ParseOptions | undefined);
+    return {
+      success: true,
+      data: acc as {
+        [Property in keyof T]: ReturnType<T[Property]['parse']>;
+      },
+    };
+  });
 
-        if (item.success) {
-          acc[key] = item.data;
-        } else {
-          item = item as Invalid;
+  return schema;
+}
 
-          if (abortEarly !== false) {
-            const formattedError = formatError(item.error, key);
-            return {
-              success: false,
-              error: formattedError,
-              errors: [formattedError],
-            };
+export function string(
+  options?: SchemaInterfaceOptions,
+): StringSchemaInterface {
+  return createSchemaInterface<string, string>(stringValidation, {
+    ...options,
+    type: 'string',
+  }) as StringSchemaInterface;
+}
+
+export function number(
+  options?: SchemaInterfaceOptions,
+): NumberSchemaInterface {
+  return createSchemaInterface<number, number>(numberValidation, {
+    ...options,
+    type: 'number',
+  }) as NumberSchemaInterface;
+}
+
+export function boolean(
+  options?: SchemaInterfaceOptions,
+): BooleanSchemaInterface {
+  return createSchemaInterface<boolean, boolean>(booleanValidation, {
+    ...options,
+    type: 'boolean',
+  }) as BooleanSchemaInterface;
+}
+
+export function date(options?: SchemaInterfaceOptions): DateSchemaInterface {
+  return createSchemaInterface<Date, Date>(dateValidation, {
+    ...options,
+    type: 'date',
+  }) as DateSchemaInterface;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export function functionSchema(
+  options?: SchemaInterfaceOptions,
+): FunctionSchemaInterface {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  return createSchemaInterface<Function, Function>(functionValidation, {
+    ...options,
+    type: 'function',
+  }) as FunctionSchemaInterface;
+}
+
+export function enumSchema(
+  definition: Readonly<Array<string>>,
+  options?: SchemaInterfaceOptions,
+): EnumSchemaInterface<(typeof definition)[number]> {
+  const validation = (value: unknown) => definition.includes(value as string);
+
+  const message = (value: unknown) =>
+    `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
+  const type = 'enum';
+
+  const schema = createSchemaInterface<string, (typeof definition)[number]>(
+    validation,
+    {
+      message,
+      ...options,
+      type,
+    },
+  ) as EnumSchemaInterface<(typeof definition)[number]>;
+
+  // Add a more detailed description for enum schemas
+  schema._getDescription = () => {
+    return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
+  };
+
+  return schema as EnumSchemaInterface<(typeof definition)[number]>;
+}
+
+export function array<T extends SchemaType>(
+  definition: T,
+  options?: SchemaInterfaceOptions,
+): ArraySchemaInterface<T> {
+  const schema = createSchemaInterface<
+    Array<ReturnType<T['parse']>>,
+    Array<ReturnType<T['parse']>>
+  >(arrayValidation, {
+    ...options,
+    type: 'array',
+  });
+
+  // Add a more detailed description for array schemas
+  schema._getDescription = () => {
+    return `array(${(definition as SchemaInterface<unknown, unknown>)._getDescription()})`;
+  };
+
+  hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+    const value = originalParse(data, parseOptions);
+    const { abortEarly } = resolveParseOptions(
+      parseOptions as ParseOptions | undefined,
+    );
+
+    if (value.success === false) {
+      return value;
+    }
+
+    const acc = [] as Array<ReturnType<T['parse']>>;
+    const errors: ErrorStructure[] = [];
+
+    // Note: Not caching length in variable as V8 optimizes array.length access
+    for (let index = 0; index < value.data.length; index++) {
+      let item = (
+        definition._parse as (
+          value: unknown,
+          parseOptions?: ParseOptions,
+        ) => InternalParseOutput<unknown>
+      )(value.data[index], parseOptions as ParseOptions | undefined);
+
+      if (item.success) {
+        acc.push(item.data as ReturnType<T['parse']>);
+      } else {
+        item = item as Invalid;
+
+        if (abortEarly !== false) {
+          const formattedError = formatError(item.error, index);
+
+          return {
+            success: false,
+            error: formattedError,
+            errors: [formattedError],
+          };
+        }
+
+        propagateNestedErrors(item, errors, index);
+      }
+    }
+
+    if (errors.length > 0) {
+      return {
+        success: false,
+        error: errors[0], // First error as the main error
+        errors,
+      };
+    }
+
+    return { success: true, data: acc } as {
+      success: true;
+      data: Array<ReturnType<T['parse']>>;
+    };
+  });
+
+  return schema as ArraySchemaInterface<T>;
+}
+
+export function any() {
+  return createSchemaInterface(() => true);
+}
+
+export function preprocess<T extends SchemaType>(
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  callback: Function,
+  schema: T,
+): T {
+  hookOriginal(schema, '_parse', (originalParse, value) => {
+    value = callback(value);
+
+    return originalParse(value);
+  });
+
+  return schema as T;
+}
+
+export function union<T extends Array<SchemaType>>(
+  definitions: T,
+  options?: SchemaInterfaceOptions,
+): UnionSchemaInterface<T> {
+  const message = (value: unknown) =>
+    `Invalid union value. Expected the value to match one of the schemas:${definitions
+      .map((definition, idx) => ` ${idx + 1}. ${definition._getDescription()}`)
+      .join(',')} but received "${typeof value}" with value: ${
+      objectValidation(value) ? JSON.stringify(value) : `"${value}"`
+    }`;
+
+  const validation = (value: unknown) => {
+    for (let index = 0; index < definitions.length; index++) {
+      const result = (
+        definitions[index]._parse as (
+          value: unknown,
+        ) => InternalParseOutput<ReturnType<T[number]['parse']>>
+      )(value);
+      if (result.success) {
+        return result as InternalParseOutput<ReturnType<T[number]['parse']>>;
+      }
+    }
+    return false;
+  };
+
+  const schema = createSchemaInterface<
+    ReturnType<T[number]['parse']>,
+    ReturnType<T[number]['parse']>
+  >(validation, {
+    message,
+    ...options,
+    type: 'union',
+  });
+
+  return schema as UnionSchemaInterface<T>;
+}
+
+export function literal<T extends string | number | boolean>(
+  value: T,
+  options?: SchemaInterfaceOptions,
+): LiteralSchemaInterface<T> {
+  const validation = (val: unknown) => val === value;
+
+  const message = (val: unknown) =>
+    options?.message
+      ? typeof options.message === 'function'
+        ? options.message(val)
+        : options.message
+      : `Expected literal value "${value}", received "${val}"`;
+
+  const schema = createSchemaInterface<T, T>(validation, {
+    message,
+    name: options?.name,
+    type: 'literal',
+  });
+
+  schema._getDescription = () => `literal("${value}")`;
+
+  return schema as LiteralSchemaInterface<T>;
+}
+
+export const coerce = {
+  string(options?: SchemaInterfaceOptions): StringSchemaInterface {
+    return preprocess((value: unknown) => String(value), string(options));
+  },
+  number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) => `Cannot coerce "${value}" to a valid number.`);
+    return preprocess(
+      (value: unknown) => Number(value),
+      number({ ...options, message }),
+    );
+  },
+  boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
+    return preprocess((value: unknown) => Boolean(value), boolean(options));
+  },
+  date(options?: SchemaInterfaceOptions): DateSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) => `Cannot coerce "${value}" to a valid date.`);
+    return preprocess(
+      (value: unknown) => new Date(value as string | number | Date),
+      date({ ...options, message }),
+    );
+  },
+};
+
+export const cast = {
+  boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) =>
+        `Cannot cast "${value}" to boolean. Accepted: true/false, 1/0, yes/no, on/off.`);
+    return preprocess(
+      (value: unknown) => {
+        let lower: string | undefined;
+
+        if (stringValidation(value)) {
+          lower = value.toLowerCase();
+        }
+
+        if (
+          lower === 'true' ||
+          lower === 'yes' ||
+          lower === 'on' ||
+          lower === '1' ||
+          value === 1
+        ) {
+          return true;
+        }
+
+        if (
+          lower === 'false' ||
+          lower === 'no' ||
+          lower === 'off' ||
+          lower === '0' ||
+          value === 0
+        ) {
+          return false;
+        }
+
+        return value; // will fail booleanValidation → emits custom message
+      },
+      boolean({ ...options, message }),
+    );
+  },
+  number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) =>
+        `Cannot cast "${value}" to a number. Expected a numeric string or number.`);
+    return preprocess(
+      (value: unknown) => {
+        if (booleanValidation(value)) {
+          return Number(value);
+        }
+
+        if (stringValidation(value)) {
+          const trimmed = value.trim();
+
+          if (trimmed === '') {
+            return value; // will fail numberValidation → emits custom message
           }
 
-          propagateNestedErrors(item, errors, key);
+          const n = Number(trimmed);
+          if (Number.isFinite(n)) {
+            return n;
+          }
         }
-      }
 
-      if (errors.length > 0) {
-        return {
-          success: false,
-          error: errors[0], // First error as the main error
-          errors,
-        };
-      }
+        return value;
+      },
+      number({ ...options, message }),
+    );
+  },
+  string(options?: SchemaInterfaceOptions): StringSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) =>
+        `Cannot cast "${value}" to string. Expected a string, number, or boolean.`);
+    return preprocess(
+      (value: unknown) => {
+        if (
+          booleanValidation(value) ||
+          (numberValidation(value) && Number.isFinite(value))
+        ) {
+          return String(value);
+        }
 
-      return {
-        success: true,
-        data: acc as {
-          [Property in keyof T]: ReturnType<T[Property]['parse']>;
-        },
-      };
-    });
+        return value;
+      },
+      string({ ...options, message }),
+    );
+  },
+  date(options?: SchemaInterfaceOptions): DateSchemaInterface {
+    const message =
+      options?.message ??
+      ((value: unknown) => `Cannot cast "${value}" to a valid date.`);
+    return preprocess(
+      (value: unknown) => {
+        let str: string | undefined;
 
+        if (stringValidation(value)) {
+          str = value.trim();
+        }
+
+        if ((numberValidation(value) && Number.isFinite(value)) || str) {
+          return new Date((str ?? value) as string | number);
+        }
+
+        return value;
+      },
+      date({ ...options, message }),
+    );
+  },
+  json<T extends SchemaType>(schema: T, options?: SchemaInterfaceOptions): T {
+    const message =
+      options?.message ??
+      ((value: unknown) => `Cannot parse "${value}" as JSON.`);
+    hookOriginal(
+      schema,
+      '_parse',
+      (originalParse: Function, value: unknown) => {
+        if (stringValidation(value)) {
+          try {
+            value = JSON.parse(value);
+          } catch {
+            const error = {
+              message: typeof message === 'function' ? message(value) : message,
+            };
+            return { success: false, error, errors: [error] };
+          }
+        }
+        return originalParse(value);
+      },
+    );
     return schema;
   },
-  /**
-   * Creates a string schema.
-   *
-   * @param options - Optional configuration (name, message)
-   * @returns String schema interface
-   *
-   * @example
-   * ```typescript
-   * const nameSchema = s.string();
-   * const result = nameSchema.parse('John'); // 'John'
-   * ```
-   */
-  string(options?: SchemaInterfaceOptions): StringSchemaInterface {
-    return createSchemaInterface<string, string>(stringValidation, {
-      ...options,
-      type: 'string',
-    }) as StringSchemaInterface;
-  },
-  /**
-   * Creates a number schema.
-   *
-   * @param options - Optional configuration (name, message)
-   * @returns Number schema interface
-   *
-   * @example
-   * ```typescript
-   * const ageSchema = s.number();
-   * const result = ageSchema.parse(25); // 25
-   * ```
-   */
-  number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
-    return createSchemaInterface<number, number>(numberValidation, {
-      ...options,
-      type: 'number',
-    }) as NumberSchemaInterface;
-  },
-  /**
-   * Creates a boolean schema.
-   *
-   * @param options - Optional configuration (name, message)
-   * @returns Boolean schema interface
-   *
-   * @example
-   * ```typescript
-   * const isActiveSchema = s.boolean();
-   * const result = isActiveSchema.parse(true); // true
-   * ```
-   */
-  boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
-    return createSchemaInterface<boolean, boolean>(booleanValidation, {
-      ...options,
-      type: 'boolean',
-    }) as BooleanSchemaInterface;
-  },
-  /**
-   * Creates a date schema.
-   *
-   * @param options - Optional configuration (name, message)
-   * @returns Date schema interface
-   *
-   * @example
-   * ```typescript
-   * const birthdateSchema = s.date();
-   * const result = birthdateSchema.parse(new Date()); // Date object
-   * ```
-   */
-  date(options?: SchemaInterfaceOptions): DateSchemaInterface {
-    return createSchemaInterface<Date, Date>(dateValidation, {
-      ...options,
-      type: 'date',
-    }) as DateSchemaInterface;
-  },
-  /**
-   * Creates a function schema that validates the value is callable.
-   *
-   * @param options - Optional configuration (name, message)
-   * @returns Function schema interface
-   *
-   * @example
-   * ```typescript
-   * const callbackSchema = s.function();
-   * callbackSchema.parse(() => {}); // () => {}
-   * callbackSchema.parse('hello');  // throws
-   * ```
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  function(options?: SchemaInterfaceOptions): FunctionSchemaInterface {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    return createSchemaInterface<Function, Function>(functionValidation, {
-      ...options,
-      type: 'function',
-    }) as FunctionSchemaInterface;
-  },
-  /**
-   * Creates an enum schema with predefined values.
-   *
-   * @param definition - Array of allowed string values
-   * @param options - Optional configuration (name, message)
-   * @returns Enum schema interface
-   *
-   * @example
-   * ```typescript
-   * const roleSchema = s.enum(['admin', 'user', 'guest']);
-   * const result = roleSchema.parse('admin'); // 'admin'
-   * ```
-   */
-  enum(
-    definition: Readonly<Array<string>>,
-    options?: SchemaInterfaceOptions,
-  ): EnumSchemaInterface<(typeof definition)[number]> {
-    const validation = (value: unknown) => definition.includes(value as string);
+};
 
-    const message = (value: unknown) =>
-      `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
-    const type = 'enum';
-
-    const schema = createSchemaInterface<string, (typeof definition)[number]>(
-      validation,
-      {
-        message,
-        ...options,
-        type,
-      },
-    ) as EnumSchemaInterface<(typeof definition)[number]>;
-
-    // Add a more detailed description for enum schemas
-    schema._getDescription = () => {
-      return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
-    };
-
-    return schema as EnumSchemaInterface<(typeof definition)[number]>;
-  },
-  /**
-   * Creates an array schema with element validation.
-   *
-   * @param definition - Schema for array elements
-   * @param options - Optional configuration (name, message)
-   * @returns Array schema interface
-   *
-   * @example
-   * ```typescript
-   * const tagsSchema = s.array(s.string());
-   * const result = tagsSchema.parse(['tag1', 'tag2']); // ['tag1', 'tag2']
-   * ```
-   */
-  array<T extends SchemaType>(
-    definition: T,
-    options?: SchemaInterfaceOptions,
-  ): ArraySchemaInterface<T> {
-    const schema = createSchemaInterface<
-      Array<ReturnType<T['parse']>>,
-      Array<ReturnType<T['parse']>>
-    >(arrayValidation, {
-      ...options,
-      type: 'array',
-    });
-
-    // Add a more detailed description for array schemas
-    schema._getDescription = () => {
-      return `array(${(definition as SchemaInterface<unknown, unknown>)._getDescription()})`;
-    };
-
-    hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
-      const value = originalParse(data, parseOptions);
-      const { abortEarly } = resolveParseOptions(
-        parseOptions as ParseOptions | undefined,
-      );
-
-      if (value.success === false) {
-        return value;
-      }
-
-      const acc = [] as Array<ReturnType<T['parse']>>;
-      const errors: ErrorStructure[] = [];
-
-      // In array validation:
-      // Note: Not caching length in variable as V8 optimizes array.length access
-      for (let index = 0; index < value.data.length; index++) {
-        let item = (
-          definition._parse as (
-            value: unknown,
-            parseOptions?: ParseOptions,
-          ) => InternalParseOutput<unknown>
-        )(value.data[index], parseOptions as ParseOptions | undefined);
-
-        if (item.success) {
-          acc.push(item.data as ReturnType<T['parse']>);
-        } else {
-          item = item as Invalid;
-
-          if (abortEarly !== false) {
-            const formattedError = formatError(item.error, index);
-
-            return {
-              success: false,
-              error: formattedError,
-              errors: [formattedError],
-            };
-          }
-
-          propagateNestedErrors(item, errors, index);
-        }
-      }
-
-      if (errors.length > 0) {
-        return {
-          success: false,
-          error: errors[0], // First error as the main error
-          errors,
-        };
-      }
-
-      return { success: true, data: acc } as {
-        success: true;
-        data: Array<ReturnType<T['parse']>>;
-      };
-    });
-
-    return schema as ArraySchemaInterface<T>;
-  },
-  /**
-   * Creates a schema that accepts any value without validation.
-   *
-   * @returns Schema interface that accepts any value
-   *
-   * @example
-   * ```typescript
-   * const anySchema = s.any();
-   * const result = anySchema.parse({ anything: true }); // { anything: true }
-   * ```
-   */
-  any() {
-    return createSchemaInterface(() => true);
-  },
-  /**
-   * Preprocesses a value before passing it to a schema for validation.
-   *
-   * @param callback - Function to transform the value before validation
-   * @param schema - Schema to validate the transformed value
-   * @returns Modified schema with preprocessing
-   *
-   * @example
-   * ```typescript
-   * const schema = s.preprocess(
-   *   (val) => String(val).trim(),
-   *   s.string().min(3)
-   * );
-   * const result = schema.parse('  hello  '); // 'hello'
-   * ```
-   */
-  preprocess<T extends SchemaType>(callback: Function, schema: T) {
-    hookOriginal(schema, '_parse', (originalParse, value) => {
-      value = callback(value);
-
-      return originalParse(value);
-    });
-
-    return schema as T;
-  },
-  /**
-   * Creates a union schema that validates against multiple schemas.
-   * The value must match at least one of the provided schemas.
-   *
-   * @param definitions - Array of schemas to validate against
-   * @param options - Optional configuration (name, message)
-   * @returns Union schema interface
-   *
-   * @example
-   * ```typescript
-   * const idSchema = s.union([s.string(), s.number()]);
-   * const result1 = idSchema.parse('abc'); // 'abc'
-   * const result2 = idSchema.parse(123); // 123
-   * ```
-   */
-  union<T extends Array<SchemaType>>(
-    definitions: T,
-    options?: SchemaInterfaceOptions,
-  ): UnionSchemaInterface<T> {
-    const message = (value: unknown) =>
-      `Invalid union value. Expected the value to match one of the schemas:${definitions
-        .map(
-          (definition, idx) => ` ${idx + 1}. ${definition._getDescription()}`,
-        )
-        .join(',')} but received "${typeof value}" with value: ${
-        objectValidation(value) ? JSON.stringify(value) : `"${value}"`
-      }`;
-
-    const validation = (value: unknown) => {
-      for (let index = 0; index < definitions.length; index++) {
-        const result = (
-          definitions[index]._parse as (
-            value: unknown,
-          ) => InternalParseOutput<ReturnType<T[number]['parse']>>
-        )(value);
-        if (result.success) {
-          return result as InternalParseOutput<ReturnType<T[number]['parse']>>;
-        }
-      }
-      return false;
-    };
-
-    const schema = createSchemaInterface<
-      ReturnType<T[number]['parse']>,
-      ReturnType<T[number]['parse']>
-    >(validation, {
-      message,
-      ...options,
-      type: 'union',
-    });
-
-    return schema as UnionSchemaInterface<T>;
-  },
-  /**
-   * Creates a literal schema that only accepts a specific value.
-   *
-   * @param value - The exact value to match
-   * @param options - Optional configuration
-   * @returns Literal schema interface
-   *
-   * @example
-   * ```typescript
-   * const adminSchema = s.literal('admin');
-   * adminSchema.parse('admin'); // 'admin'
-   * adminSchema.parse('user'); // throws error
-   * ```
-   */
-  literal<T extends string | number | boolean>(
-    value: T,
-    options?: SchemaInterfaceOptions,
-  ): LiteralSchemaInterface<T> {
-    const validation = (val: unknown) => val === value;
-
-    const message = (val: unknown) =>
-      options?.message
-        ? typeof options.message === 'function'
-          ? options.message(val)
-          : options.message
-        : `Expected literal value "${value}", received "${val}"`;
-
-    const schema = createSchemaInterface<T, T>(validation, {
-      message,
-      name: options?.name,
-      type: 'literal',
-    });
-
-    schema._getDescription = () => `literal("${value}")`;
-
-    return schema as LiteralSchemaInterface<T>;
-  },
-  /**
-   * Coerce schemas that apply a native JS constructor before validation.
-   * Unlike `s.preprocess`, coerce provides a consistent API for common type
-   * conversions with clear error messages when coercion produces an invalid result.
-   *
-   * @example
-   * ```typescript
-   * s.coerce.number().parse('42');       // 42
-   * s.coerce.string().parse(123);        // '123'
-   * s.coerce.boolean().parse(0);         // false
-   * s.coerce.date().parse('2024-01-01'); // Date object
-   * ```
-   */
-  coerce: {
-    /**
-     * Creates a string schema that coerces input using `String(value)`.
-     * Always succeeds — `String()` never produces an invalid string.
-     */
-    string(options?: SchemaInterfaceOptions): StringSchemaInterface {
-      return s.preprocess((value: unknown) => String(value), s.string(options));
-    },
-    /**
-     * Creates a number schema that coerces input using `Number(value)`.
-     * Fails when the result is `NaN` (e.g. `'bad'`, `undefined`, plain objects).
-     */
-    number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) => `Cannot coerce "${value}" to a valid number.`);
-      return s.preprocess(
-        (value: unknown) => Number(value),
-        s.number({ ...options, message }),
-      );
-    },
-    /**
-     * Creates a boolean schema that coerces input using `Boolean(value)`.
-     * Always succeeds — `Boolean()` always produces `true` or `false`.
-     * Note: `Boolean('false')` is `true` because `'false'` is a non-empty string.
-     */
-    boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
-      return s.preprocess(
-        (value: unknown) => Boolean(value),
-        s.boolean(options),
-      );
-    },
-    /**
-     * Creates a date schema that coerces input using `new Date(value)`.
-     * Fails when the result is an invalid Date (e.g. `'garbage'`).
-     */
-    date(options?: SchemaInterfaceOptions): DateSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) => `Cannot coerce "${value}" to a valid date.`);
-      return s.preprocess(
-        (value: unknown) => new Date(value as string | number | Date),
-        s.date({ ...options, message }),
-      );
-    },
-  },
-  /**
-   * Smart cast schemas that apply semantic conversion before validation.
-   * Unlike `s.coerce` (which uses raw JS constructors), `s.cast` understands
-   * common programmer-friendly string representations and rejects ambiguous
-   * inputs such as `null`, `undefined`, and empty strings.
-   *
-   * Differences from `s.coerce`:
-   * - `cast.boolean('false')` → `false` (coerce gives `true` — non-empty string)
-   * - `cast.boolean('yes'/'no'/'on'/'off')` → `true`/`false` (coerce doesn't understand these)
-   * - `cast.number(null)` → throws (coerce gives `0`)
-   * - `cast.number('')` → throws (coerce gives `0`)
-   * - `cast.string(null)` → throws (coerce gives `'null'`)
-   * - `cast.date(null)` → throws (coerce gives epoch Date)
-   *
-   * @example
-   * ```typescript
-   * s.cast.boolean().parse('false');  // false — unlike coerce!
-   * s.cast.boolean().parse('yes');    // true
-   * s.cast.boolean().parse('on');     // true
-   * s.cast.number().parse(' 42 ');   // 42 — trims whitespace
-   * s.cast.number().parse(null);      // throws
-   * s.cast.string().parse(123);       // '123'
-   * s.cast.string().parse(null);      // throws — unlike coerce!
-   * s.cast.date().parse('2024-01-01'); // Date object
-   * s.cast.date().parse(null);         // throws — unlike coerce!
-   * ```
-   */
-  cast: {
-    /**
-     * Creates a boolean schema with semantic string casting.
-     * Recognises (case-insensitive): `'true'/'false'`, `'yes'/'no'`, `'on'/'off'`, `'1'/'0'`.
-     * Numbers `1` and `0` are accepted; any other number throws.
-     * `null`, `undefined`, and unrecognised strings throw.
-     */
-    boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) =>
-          `Cannot cast "${value}" to boolean. Accepted: true/false, 1/0, yes/no, on/off.`);
-      return s.preprocess(
-        (value: unknown) => {
-          let lower: string | undefined;
-
-          if (stringValidation(value)) {
-            lower = value.toLowerCase();
-          }
-
-          if (
-            lower === 'true' ||
-            lower === 'yes' ||
-            lower === 'on' ||
-            lower === '1' ||
-            value === 1
-          ) {
-            return true;
-          }
-
-          if (
-            lower === 'false' ||
-            lower === 'no' ||
-            lower === 'off' ||
-            lower === '0' ||
-            value === 0
-          ) {
-            return false;
-          }
-
-          return value; // will fail booleanValidation → emits custom message
-        },
-        s.boolean({ ...options, message }),
-      );
-    },
-    /**
-     * Creates a number schema with smart string parsing.
-     * Trims whitespace from strings before converting. Accepts booleans (`true`→1, `false`→0).
-     * Rejects `null`, `undefined`, empty/whitespace-only strings, and non-numeric strings.
-     */
-    number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) =>
-          `Cannot cast "${value}" to a number. Expected a numeric string or number.`);
-      return s.preprocess(
-        (value: unknown) => {
-          if (booleanValidation(value)) {
-            return Number(value);
-          }
-
-          if (stringValidation(value)) {
-            const trimmed = value.trim();
-
-            if (trimmed === '') {
-              return value; // will fail numberValidation → emits custom message
-            }
-
-            const number = Number(trimmed);
-            if (Number.isFinite(number)) {
-              return number;
-            }
-          }
-
-          return value;
-        },
-        s.number({ ...options, message }),
-      );
-    },
-    /**
-     * Creates a string schema that accepts strings, finite numbers, and booleans.
-     * Rejects `null`, `undefined`, objects, arrays, `NaN`, and `Infinity`.
-     */
-    string(options?: SchemaInterfaceOptions): StringSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) =>
-          `Cannot cast "${value}" to string. Expected a string, number, or boolean.`);
-      return s.preprocess(
-        (value: unknown) => {
-          if (
-            booleanValidation(value) ||
-            (numberValidation(value) && Number.isFinite(value))
-          ) {
-            return String(value);
-          }
-
-          return value;
-        },
-        s.string({ ...options, message }),
-      );
-    },
-    /**
-     * Creates a date schema with controlled casting.
-     * Accepts ISO date strings (non-empty), finite integer timestamps, and existing Date objects.
-     * Rejects `null`, `undefined`, booleans, empty strings, and non-finite numbers.
-     */
-    date(options?: SchemaInterfaceOptions): DateSchemaInterface {
-      const message =
-        options?.message ??
-        ((value: unknown) => `Cannot cast "${value}" to a valid date.`);
-      return s.preprocess(
-        (value: unknown) => {
-          let string: string | undefined;
-
-          if (stringValidation(value)) {
-            string = value.trim();
-          }
-
-          if ((numberValidation(value) && Number.isFinite(value)) || string) {
-            return new Date((string ?? value) as string | number);
-          }
-
-          return value;
-        },
-        s.date({ ...options, message }),
-      );
-    },
-    /**
-     * Parses a JSON string and validates the result against the provided schema.
-     * If the input is not a string, it is passed directly to the inner schema.
-     * Produces a proper validation failure (never throws) when the JSON is malformed.
-     *
-     * @param schema - Schema to validate the parsed value against
-     * @param options - Optional configuration (name, message)
-     * @returns The same schema type, with JSON string preprocessing applied
-     *
-     * @example
-     * ```typescript
-     * const schema = s.cast.json(s.object({ name: s.string() }));
-     * schema.parse('{"name":"Alice"}'); // { name: 'Alice' }
-     * schema.parse({ name: 'Alice' });  // { name: 'Alice' } — pass-through
-     * schema.safeParse('not json');     // { success: false, error: ... }
-     * ```
-     */
-    json<T extends SchemaType>(schema: T, options?: SchemaInterfaceOptions): T {
-      const message =
-        options?.message ??
-        ((value: unknown) => `Cannot parse "${value}" as JSON.`);
-      hookOriginal(
-        schema,
-        '_parse',
-        (originalParse: Function, value: unknown) => {
-          if (stringValidation(value)) {
-            try {
-              value = JSON.parse(value);
-            } catch {
-              const error = {
-                message:
-                  typeof message === 'function' ? message(value) : message,
-              };
-              return { success: false, error, errors: [error] };
-            }
-          }
-          return originalParse(value);
-        },
-      );
-      return schema;
-    },
-  },
+export const s = {
+  object,
+  string,
+  number,
+  boolean,
+  date,
+  function: functionSchema,
+  enum: enumSchema,
+  array,
+  any,
+  preprocess,
+  union,
+  literal,
+  coerce,
+  cast,
 };
 
 function errorMessageFactory(type: string): (value: unknown) => string {

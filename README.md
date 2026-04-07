@@ -15,6 +15,7 @@ This small library provides a simple schema validation system for JavaScript/Typ
   - [Number Extensions](#number-extensions-esmjschemanumber)
   - [Array Extensions](#array-extensions-esmjschemaarray)
   - [Full Extensions](#full-extensions-esmjschemafull)
+  - [Named Exports & Tree-Shaking](#named-exports--tree-shaking)
 - [API Reference Summary](#api-reference-summary)
 - [Schema Types](#schema-types)
   - [s.coerce](#scoerce)
@@ -256,6 +257,13 @@ import { s } from '@esmj/schema/array';
 import '@esmj/schema/string';
 import '@esmj/schema/number';
 import { s } from '@esmj/schema';
+
+// Tree-shakeable named exports — bundle only what you use
+import { string, number, object, array } from '@esmj/schema';
+import { coerce, cast } from '@esmj/schema';
+
+// Named exports for reserved-word factories
+import { functionSchema, enumSchema } from '@esmj/schema';
 ```
 
 ### Bundle Size Impact
@@ -268,7 +276,48 @@ import { s } from '@esmj/schema';
 
 **Recommendation:** Import only the extensions you need to minimize bundle size.
 
-### String Extensions (`@esmj/schema/string`)
+### Named Exports & Tree-Shaking
+
+Every factory in the core module is exported both as a named function **and** as a property on `s`. The two references are identical — no extra wrapper, no overhead.
+
+```typescript
+import { s } from '@esmj/schema';
+import { string, number } from '@esmj/schema';
+
+s.string === string; // true
+```
+
+When you import individual factories, bundlers (webpack, Rollup, Vite, esbuild) tree-shake everything else out:
+
+```typescript
+// Only `string` and `number` end up in the final bundle — object, array, coerce, cast, etc. are excluded
+import { string, number } from '@esmj/schema';
+
+const nameSchema = string().optional();
+const ageSchema = number();
+```
+
+The `coerce` and `cast` namespaces are also individually exported:
+
+```typescript
+import { coerce } from '@esmj/schema';
+
+const schema = coerce.number();
+schema.parse('42'); // 42
+```
+
+Because `function` and `enum` are reserved words in JavaScript, their standalone names are `functionSchema` and `enumSchema`:
+
+```typescript
+import { functionSchema, enumSchema } from '@esmj/schema';
+
+const cb = functionSchema();
+const role = enumSchema(['admin', 'user', 'guest']);
+```
+
+They are still accessible as `s.function()` and `s.enum()` for full API compatibility.
+
+
 
 String extensions provide common validation and transformation methods for string schemas.
 
@@ -428,20 +477,22 @@ const schema = s.object({
 
 ### Core Types
 
-- `s.string()` - String validation
-- `s.number()` - Number validation
-- `s.boolean()` - Boolean validation
-- `s.date()` - Date validation
-- `s.function()` - Function validation
-- `s.object(def)` - Object validation
-- `s.array(def)` - Array validation
-- `s.literal(value)` - Literal value validation
-- `s.enum(values)` - Enum validation
-- `s.union(schemas)` - Union validation
-- `s.any()` - Any type
-- `s.null()` - Null type
-- `s.undefined()` - Undefined type
-- `s.unknown()` - Unknown type
+All factory functions below are available both as methods on `s` **and** as individual named exports for tree-shaking:
+
+- `s.string()` / `import { string }` - String validation
+- `s.number()` / `import { number }` - Number validation
+- `s.boolean()` / `import { boolean }` - Boolean validation
+- `s.date()` / `import { date }` - Date validation
+- `s.function()` / `import { functionSchema }` - Function validation
+- `s.object(def)` / `import { object }` - Object validation
+- `s.array(def)` / `import { array }` - Array validation
+- `s.literal(value)` / `import { literal }` - Literal value validation
+- `s.enum(values)` / `import { enumSchema }` - Enum validation
+- `s.union(schemas)` / `import { union }` - Union validation
+- `s.any()` / `import { any }` - Any type
+- `s.preprocess(fn, schema)` / `import { preprocess }` - Preprocess before validation
+- `s.coerce` / `import { coerce }` - Coerce namespace
+- `s.cast` / `import { cast }` - Cast namespace
 
 ### Modifiers
 
