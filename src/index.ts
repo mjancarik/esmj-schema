@@ -191,10 +191,9 @@ function propagateNestedErrors(
 }
 
 function resolveParseOptions(parseOptions?: ParseOptions): ParseOptions {
-  return {
-    ...defaultParseOptions,
-    ...parseOptions,
-  };
+  return parseOptions?.abortEarly !== undefined
+    ? parseOptions
+    : defaultParseOptions;
 }
 
 // Better type for validation methods
