@@ -107,11 +107,13 @@ const result = schema.parse({
 
 ### Performance Highlights
 
-- **Schema Creation**: Create schemas at up to 4 370 618 ops/s (0.23 μs latency) with @sinclair/typebox, or 736 810 ops/s (1.36 μs latency) with @esmj/schema. Superstruct and @esmj/schema are also among the fastest for schema creation.
-- **Parsing**: Parse data at up to 4 627 714 ops/s (0.22 μs latency) with @zod/mini (note: @zod/mini was observed to consume 200% CPU, while other libraries used only 100% CPU), or 3 142 587 ops/s (0.32 μs latency) with @esmj/schema. ArkType and effect/Schema also show strong parsing throughput.
-- **Error Handling**: Efficiently manage errors at up to 2 428 049 ops/s (0.41 μs latency) with @esmj/schema, or 1 386 616 ops/s (0.72 μs latency) with @zod/mini.
+- **Schema Creation**: Create schemas at up to 4,370,618 ops/s (0.23 μs latency) with @sinclair/typebox, or 736,810 ops/s (1.36 μs latency) with @esmj/schema. Superstruct is also competitive for schema creation performance.
+- **Parsing**: Parse data at up to **33,620,146 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **4,627,714 ops/s** (**0.22 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,142,587 ops/s** (**0.32 μs**), with ArkType and effect/Schema also performing strongly.
+- **Error Handling**: Handle validation errors at up to **19,693,821 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,428,049 ops/s** (**0.41 μs**) with a developer-friendly API.
 
-These performance metrics make `@esmj/schema` an excellent choice for both frontend and backend applications where speed and efficiency are critical.
+Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~1.6 KB` core).
+
+For most TypeScript applications, it offers a practical balance of performance, size, and developer ergonomics. If absolute peak throughput in a single category is the only goal, some specialized options (for example, AJV or TypeBox in specific tests) can be faster.
 
 ## Comparison with Similar Libraries
 
@@ -125,6 +127,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | Yup               | ~12.2 KB                        |
 | Zod@3             | ~13 KB                          |
 | @zod/mini         | ~20.5 KB                        |
+| AJV               | ~31.4 KB                        |
 | Joi               | ~40.4 KB                        |
 | Zod@4             | ~40.8 KB                        |
 | ArkType           | ~41.8 KB                        |
@@ -147,6 +150,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | `@sinclair/typebox` | `4 370 618.49 ± 1.23%`      | `0.23 ± 1.23%`          |
 | ArkType           | 16 282.69 ± 4.14%             | 61.61 ± 4.38%           |
 | effect/Schema     | 24 919.15 ± 4.31%             | 40.31 ± 4.78%           |
+| AJV               | 240.32 ± 4.67%                | 4 164.31 ± 2.04%        |
 
 #### Parsing Performance
 
@@ -154,19 +158,20 @@ When choosing a schema validation library, bundle size can be an important facto
 |-------------------|-------------------------------:|-------------------------:|
 | @esmj/schema      | 3 142 587.31 ± 0.97%          | 0.32 ± 0.99%            |
 | zod@3             | 1 018 777.24 ± 0.64%          | 0.98 ± 0.65%            |
-| `@zod/mini`       | `4 627 714.90 ± 2.23%`        | `0.22 ± 2.36%`          |
+| @zod/mini.        | 4 627 714.90 ± 2.23%          | 0.22 ± 2.36%            |
 | Yup               | 108 361.49 ± 0.50%            | 9.23 ± 0.51%            |
 | Superstruct       | 252 904.42 ± 2.20%            | 3.96 ± 2.44%            |
 | Joi               | 346 094.49 ± 0.65%            | 2.89 ± 0.65%            |
 | @sinclair/typebox | 228 711.62 ± 2.03%            | 4.38 ± 2.23%            |
 | ArkType           | 1 677 066.00 ± 0.58%          | 0.60 ± 0.59%            |
 | effect/Schema     | 1 060 056.14 ± 0.61%          | 0.94 ± 0.61%            |
+| `AJV`             | `33 620 146.24 ± 1.19%`       | `0.03 ± 1.26%`          |
 
 #### Error Handling Performance
 
 | Library           | Throughput average (ops/s)      | Latency average (μs)      |
 |-------------------|-------------------------------:|-------------------------:|
-| `@esmj/schema`    | `2 428 049.34 ± 0.54%`        | `0.41 ± 0.53%`          |
+| @esmj/schema      | 2 428 049.34 ± 0.54%          | 0.41 ± 0.53%            |
 | zod@3             | 641 504.22 ± 3.67%            | 1.57 ± 4.38%            |
 | @zod/mini         | 1 386 616.61 ± 0.60%          | 0.72 ± 0.60%            |
 | Yup               | 98 904.30 ± 0.61%             | 10.11 ± 0.61%           |
@@ -175,6 +180,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @sinclair/typebox | 228 734.49 ± 0.55%            | 4.37 ± 0.56%            |
 | ArkType           | 258 685.33 ± 1.23%            | 3.87 ± 1.23%            |
 | effect/Schema     | 165 753.69 ± 0.99%            | 6.03 ± 1.00%            |
+| `AJV`             | `19 693 821.79 ± 1.81%`       | `0.05 ± 1.83%`          |
 
 **Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
 

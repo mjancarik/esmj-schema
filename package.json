@@ -99,6 +99,8 @@
   "homepage": "https://github.com/mjancarik/esmj-schema#readme",
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@sinclair/typebox": "^0.34.41",

@@ -1,7 +1,10 @@
+import { createRequire } from 'node:module';
 import { performance } from 'node:perf_hooks';
 import { Type } from '@sinclair/typebox'; // Import TypeBox
 import { Value } from '@sinclair/typebox/value';
 import { z as zodMini } from '@zod/mini'; // Import Zod Mini
+import Ajv from 'ajv';
+import ajvKeywords from 'ajv-keywords';
 import { type } from 'arktype';
 import { Schema } from 'effect';
 import Joi from 'joi'; // Import Joi
@@ -9,6 +12,31 @@ import superStruct from 'superstruct'; // Import Superstruct
 import * as yup from 'yup'; // Import Yup
 import { late, z } from 'zod'; // Import Zod
 import { s } from '../src/index.ts'; // Import @esmj/schema
+
+// AJV shared infrastructure
+const _req = createRequire(import.meta.url);
+_req('ajv-keywords/dist/definitions/instanceof').CONSTRUCTORS.Date = Date;
+const _ajv = new Ajv();
+ajvKeywords(_ajv);
+const ajvJsonSchema = {
+  type: 'object',
+  properties: {
+    username: { type: 'string' },
+    password: { type: 'string' },
+    age: { type: 'number' },
+    address: {
+      type: 'object',
+      properties: {
+        street: { type: 'string', nullable: true },
+        city: { type: 'string', nullable: true },
+        date: { instanceof: 'Date' },
+      },
+    },
+    tags: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['username', 'password', 'tags'],
+};
+const ajvValidate = _ajv.compile(ajvJsonSchema);
 
 function fixLength(string: string, length: number) {
   if (string.length >= length) {
@@ -243,6 +271,10 @@ function scenarioParseSchema(testData) {
     Schema.encodeEither(effectSchema)(testData);
   });
 
+  result.AJV = benchmark('AJV', () => {
+    ajvValidate(testData);
+  });
+
   return result;
 }
 
@@ -373,6 +405,13 @@ function scenarioCreatingSchema() {
       tags: Schema.Array(Schema.String),
     });
   });
+
+  result.AJV = benchmark('AJV', () => {
+    const ajvLocal = new Ajv();
+    ajvKeywords(ajvLocal);
+    ajvLocal.compile(ajvJsonSchema);
+  });
+
   return result;
 }
 
