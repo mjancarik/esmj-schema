@@ -1,3 +1,9 @@
+## <small>0.7.4 (2026-04-07)</small>
+
+* feat: 🎸 extract schema factories as tree-shakeable named export ([eae8c8c](https://github.com/mjancarik/esmj-schema/commit/eae8c8c))
+* refactor: 💡 not craete new object for every single parse call ([2e0dbf1](https://github.com/mjancarik/esmj-schema/commit/2e0dbf1))
+* chore: 🤖 add ajv framework ([ca6c136](https://github.com/mjancarik/esmj-schema/commit/ca6c136))
+* chore: 🤖 fix sideEffects in package.json ([0beb50c](https://github.com/mjancarik/esmj-schema/commit/0beb50c))
 ## <small>0.7.3 (2026-03-27)</small>
 
 * chore: 🤖 fix TS types for typescript@6 ([dfe63df](https://github.com/mjancarik/esmj-schema/commit/dfe63df))
