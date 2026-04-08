@@ -88,6 +88,8 @@ export interface ArraySchemaInterface<T extends SchemaType>
     Array<ReturnType<T['parse']>>,
     Array<ReturnType<T['parse']>>
   > {}
+// biome-ignore lint/suspicious/noEmptyInterface: extended by coerce module
+export interface CoerceInterface {}
 export interface ObjectSchemaInterface<T extends Record<string, SchemaType>>
   extends SchemaInterface<
     { [Property in keyof T]: ReturnType<T[Property]['parse']> },
@@ -531,33 +533,6 @@ export function literal<T extends string | number | boolean>(
   return schema as LiteralSchemaInterface<T>;
 }
 
-export const coerce = {
-  string(options?: SchemaInterfaceOptions): StringSchemaInterface {
-    return preprocess((value: unknown) => String(value), string(options));
-  },
-  number(options?: SchemaInterfaceOptions): NumberSchemaInterface {
-    const message =
-      options?.message ??
-      ((value: unknown) => `Cannot coerce "${value}" to a valid number.`);
-    return preprocess(
-      (value: unknown) => Number(value),
-      number({ ...options, message }),
-    );
-  },
-  boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
-    return preprocess((value: unknown) => Boolean(value), boolean(options));
-  },
-  date(options?: SchemaInterfaceOptions): DateSchemaInterface {
-    const message =
-      options?.message ??
-      ((value: unknown) => `Cannot coerce "${value}" to a valid date.`);
-    return preprocess(
-      (value: unknown) => new Date(value as string | number | Date),
-      date({ ...options, message }),
-    );
-  },
-};
-
 export const cast = {
   boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
     const message =
@@ -704,7 +679,7 @@ export const s = {
   preprocess,
   union,
   literal,
-  coerce,
+  coerce: {} as CoerceInterface,
   cast,
 };
 

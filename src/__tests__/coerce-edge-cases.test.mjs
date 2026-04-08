@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { s } from '../index.ts';
+import { s } from '../coerce.ts';
 
 describe('s.coerce', () => {
   describe('coerce.number()', () => {

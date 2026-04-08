@@ -46,6 +46,11 @@
       "types": "./dist/array.d.ts",
       "import": "./dist/array.mjs",
       "require": "./dist/array.cjs"
+    },
+    "./coerce": {
+      "types": "./dist/coerce.d.ts",
+      "import": "./dist/coerce.mjs",
+      "require": "./dist/coerce.cjs"
     }
   },
   "sideEffects": [
@@ -60,7 +65,10 @@
     "./dist/array.mjs",
     "./dist/array.cjs",
     "./dist/full.mjs",
-    "./dist/full.cjs"
+    "./dist/full.cjs",
+    "./src/coerce.ts",
+    "./dist/coerce.mjs",
+    "./dist/coerce.cjs"
   ],
   "typings": "dist/index.d.ts",
   "scripts": {

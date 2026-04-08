@@ -14,6 +14,7 @@ This small library provides a simple schema validation system for JavaScript/Typ
   - [String Extensions](#string-extensions-esmjschemastring)
   - [Number Extensions](#number-extensions-esmjschemanumber)
   - [Array Extensions](#array-extensions-esmjschemaarray)
+  - [Coerce Extensions](#coerce-extensions-esmjschemacoerce)
   - [Full Extensions](#full-extensions-esmjschemafull)
   - [Named Exports & Tree-Shaking](#named-exports--tree-shaking)
 - [API Reference Summary](#api-reference-summary)
@@ -253,9 +254,13 @@ import { s } from '@esmj/schema/number';
 // Array extensions only
 import { s } from '@esmj/schema/array';
 
+// Coerce extensions only
+import { s } from '@esmj/schema/coerce';
+
 // Mix and match (side-effect imports)
 import '@esmj/schema/string';
 import '@esmj/schema/number';
+import '@esmj/schema/coerce';
 import { s } from '@esmj/schema';
 
 // Tree-shakeable named exports — bundle only what you use
@@ -272,6 +277,7 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 - **String extensions** (`@esmj/schema/string`): +~0.8 KB
 - **Number extensions** (`@esmj/schema/number`): +~0.6 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.5 KB
+- **Coerce extensions** (`@esmj/schema/coerce`): +~0.3 KB
 - **Full** (`@esmj/schema/full`): ~4 KB gzipped (all extensions)
 
 **Recommendation:** Import only the extensions you need to minimize bundle size.
@@ -300,10 +306,19 @@ const ageSchema = number();
 The `coerce` and `cast` namespaces are also individually exported:
 
 ```typescript
-import { coerce } from '@esmj/schema';
+// coerce is a named export from @esmj/schema but s.coerce methods
+// require importing '@esmj/schema/coerce' (or '@esmj/schema/full') first:
+import '@esmj/schema/coerce';
+import { s } from '@esmj/schema';
 
-const schema = coerce.number();
+const schema = s.coerce.number();
 schema.parse('42'); // 42
+
+// Or import the standalone coerce object directly:
+import { coerce } from '@esmj/schema/coerce';
+
+const schema2 = coerce.number();
+schema2.parse('42'); // 42
 ```
 
 Because `function` and `enum` are reserved words in JavaScript, their standalone names are `functionSchema` and `enumSchema`:
@@ -415,6 +430,36 @@ tagsSchema.parse({
 - **Content validations**: `unique()`
 - **Transformations**: `sort()`, `reverse()`
 
+### Coerce Extensions (`@esmj/schema/coerce`)
+
+Coerce extensions add `s.coerce` methods that apply native JS constructors before validation, providing convenient type coercion with clear error messages.
+
+> **Note:** `s.coerce` is opt-in. Import `@esmj/schema/coerce` (or `@esmj/schema/full`) to activate it. Importing only the core `@esmj/schema` leaves `s.coerce` empty.
+
+```typescript
+import { s } from '@esmj/schema/coerce';
+
+s.coerce.number().parse('42');       // 42
+s.coerce.string().parse(123);        // '123'
+s.coerce.boolean().parse(0);         // false
+s.coerce.date().parse('2024-01-01'); // Date object
+
+// Coerce then chain schema methods:
+s.coerce.number().refine((v) => v > 0, { message: 'Must be positive' }).parse('5'); // 5
+
+// Custom error message:
+s.coerce.number({ message: 'Expected a numeric value' }).parse('bad'); // throws: Expected a numeric value
+```
+
+**Available Coerce Methods:**
+
+| Method | Coercion | Fails when |
+|---|---|---|
+| `s.coerce.string(options?)` | `String(v)` | Never |
+| `s.coerce.number(options?)` | `Number(v)` | Result is `NaN` |
+| `s.coerce.boolean(options?)` | `Boolean(v)` | Never |
+| `s.coerce.date(options?)` | `new Date(v)` | Result is an invalid Date |
+
 ### Full Extensions (`@esmj/schema/full`)
 
 The full version includes all string, number, and array extensions in a single import.
@@ -491,7 +536,7 @@ All factory functions below are available both as methods on `s` **and** as indi
 - `s.union(schemas)` / `import { union }` - Union validation
 - `s.any()` / `import { any }` - Any type
 - `s.preprocess(fn, schema)` / `import { preprocess }` - Preprocess before validation
-- `s.coerce` / `import { coerce }` - Coerce namespace
+- `s.coerce` / `import { coerce } from '@esmj/schema/coerce'` - Coerce namespace (requires `@esmj/schema/coerce` import)
 - `s.cast` / `import { cast }` - Cast namespace
 
 ### Modifiers
@@ -503,6 +548,8 @@ All factory functions below are available both as methods on `s` **and** as indi
 - `.catch(value)` - Returns fallback value on any parse failure
 
 ### Coerce
+
+> Requires `import '@esmj/schema/coerce'` or `import '@esmj/schema/full'`. `s.coerce` is empty without this import.
 
 - `s.coerce.string()` - Coerce any value to string, then validate
 - `s.coerce.number()` - Coerce any value to number, then validate (fails for NaN)
@@ -829,6 +876,8 @@ const preprocessSchema = s.preprocess((value) => new Date(value), s.date());
 ```
 
 #### `s.coerce`
+
+> **Requires `import '@esmj/schema/coerce'`** (or `'@esmj/schema/full'`) as a side-effect. Importing only the core `@esmj/schema` leaves `s.coerce` empty — calling `s.coerce.string()` will throw at runtime and produce a TypeScript error.
 
 The `coerce` namespace applies a native JS constructor to the input **before** validation.
 Unlike `s.preprocess`, you don't need to write the conversion yourself, and coerce methods

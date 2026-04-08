@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 
 export default [
   defineConfig({
-    entry: ['src/index.ts', 'src/full.ts', 'src/string.ts', 'src/number.ts', 'src/array.ts'],
+    entry: ['src/index.ts', 'src/full.ts', 'src/string.ts', 'src/number.ts', 'src/array.ts', 'src/coerce.ts'],
     clean: true,
     minify: true,
     target: 'es2022',
