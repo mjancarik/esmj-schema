@@ -1,3 +1,18 @@
+## 0.8.0 (2026-04-08)
+
+* feat: 🎸 extract s.coerce into standalone opt-in module ([20329ad](https://github.com/mjancarik/esmj-schema/commit/20329ad))
+
+### BREAKING CHANGE
+
+* 🧨 Move the coerce implementation from src/index.ts into a new
+src/coerce.ts side-effect module, matching the pattern ofstring.ts /
+number.ts / array.ts. s.coerce is an empty object by default — methods
+are only availableafter importing the coerce module:  import
+'@esmj/schema/coerce';        // side-effect only  import { s } from
+'@esmj/schema/coerce'; // re-exports index.ts  import { s } from
+'@esmj/schema/full';   // includes all modulesWithout this import,
+calling any s.coerce method throws at runtime.TypeScript enforces this
+through the empty CoerceInterface./
 ## <small>0.7.4 (2026-04-07)</small>
 
 * feat: 🎸 extract schema factories as tree-shakeable named export ([eae8c8c](https://github.com/mjancarik/esmj-schema/commit/eae8c8c))
