@@ -1,3 +1,6 @@
+## <small>0.8.1 (2026-07-27)</small>
+
+* docs: ✏️ add valibot to benchmark ([17e3720](https://github.com/mjancarik/esmj-schema/commit/17e3720))
 ## 0.8.0 (2026-04-08)
 
 * feat: 🎸 extract s.coerce into standalone opt-in module ([20329ad](https://github.com/mjancarik/esmj-schema/commit/20329ad))
