@@ -1,3 +1,6 @@
+## <small>0.8.2 (2026-07-27)</small>
+
+* ci: 🎡 set trusting publisher ([8ffa44e](https://github.com/mjancarik/esmj-schema/commit/8ffa44e))
 ## <small>0.8.1 (2026-07-27)</small>
 
 * docs: ✏️ add valibot to benchmark ([17e3720](https://github.com/mjancarik/esmj-schema/commit/17e3720))
