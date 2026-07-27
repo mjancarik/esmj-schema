@@ -9,6 +9,7 @@ import { type } from 'arktype';
 import { Schema } from 'effect';
 import Joi from 'joi'; // Import Joi
 import superStruct from 'superstruct'; // Import Superstruct
+import * as v from 'valibot'; // Import Valibot
 import * as yup from 'yup'; // Import Yup
 import { late, z } from 'zod'; // Import Zod
 import { s } from '../src/index.ts'; // Import @esmj/schema
@@ -231,6 +232,18 @@ function scenarioParseSchema(testData) {
     tags: Schema.Array(Schema.String),
   });
 
+  const valibotSchema = v.object({
+    username: v.string(),
+    password: v.string(),
+    age: v.optional(v.number()),
+    address: v.object({
+      street: v.nullish(v.string()),
+      city: v.nullable(v.string()),
+      date: v.optional(v.date()), // Optional date field
+    }),
+    tags: v.array(v.string()),
+  });
+
   const result = {} as Record<string, object>;
 
   result['@esmj/schema'] = benchmark('@esmj/schema', () => {
@@ -269,6 +282,10 @@ function scenarioParseSchema(testData) {
 
   result['effect/Schema'] = benchmark('effect/Schema', () => {
     Schema.encodeEither(effectSchema)(testData);
+  });
+
+  result.Valibot = benchmark('Valibot', () => {
+    v.safeParse(valibotSchema, testData);
   });
 
   result.AJV = benchmark('AJV', () => {
@@ -403,6 +420,20 @@ function scenarioCreatingSchema() {
         date: Schema.optional(Schema.ValidDateFromSelf),
       }),
       tags: Schema.Array(Schema.String),
+    });
+  });
+
+  result.Valibot = benchmark('Valibot', () => {
+    v.object({
+      username: v.string(),
+      password: v.string(),
+      age: v.optional(v.number()),
+      address: v.object({
+        street: v.nullish(v.string()),
+        city: v.nullable(v.string()),
+        date: v.optional(v.date()), // Optional date field
+      }),
+      tags: v.array(v.string()),
     });
   });
 

@@ -115,12 +115,12 @@
   "homepage": "https://github.com/mjancarik/esmj-schema#readme",
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "ajv": "^8.17.1",
-    "ajv-keywords": "^5.1.0",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@sinclair/typebox": "^0.34.41",
     "@zod/mini": "^4.0.0-beta.0",
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "arktype": "^2.1.22",
     "commitizen": "^4.3.1",
     "conventional-changelog-cli": "^5.0.0",
@@ -132,6 +132,7 @@
     "lint-staged": "^16.1.6",
     "superstruct": "^2.0.2",
     "tsup": "^8.5.1",
+    "valibot": "^1.4.2",
     "yup": "^1.7.0",
     "zod": "^3.25.42"
   }

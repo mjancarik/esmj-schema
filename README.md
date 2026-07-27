@@ -128,6 +128,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
 | Zod@3             | ~13 KB                          |
+| Valibot           | ~13.5 KB                        |
 | @zod/mini         | ~20.5 KB                        |
 | AJV               | ~31.4 KB                        |
 | Joi               | ~40.4 KB                        |
@@ -152,6 +153,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | `@sinclair/typebox` | `4 370 618.49 ± 1.23%`      | `0.23 ± 1.23%`          |
 | ArkType           | 16 282.69 ± 4.14%             | 61.61 ± 4.38%           |
 | effect/Schema     | 24 919.15 ± 4.31%             | 40.31 ± 4.78%           |
+| Valibot           | 288 143.23 ± 1.93%            | 3.47 ± 2.00%            |
 | AJV               | 240.32 ± 4.67%                | 4 164.31 ± 2.04%        |
 
 #### Parsing Performance
@@ -167,6 +169,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @sinclair/typebox | 228 711.62 ± 2.03%            | 4.38 ± 2.23%            |
 | ArkType           | 1 677 066.00 ± 0.58%          | 0.60 ± 0.59%            |
 | effect/Schema     | 1 060 056.14 ± 0.61%          | 0.94 ± 0.61%            |
+| Valibot           | 1 789 204.27 ± 0.49%          | 0.56 ± 0.49%            |
 | `AJV`             | `33 620 146.24 ± 1.19%`       | `0.03 ± 1.26%`          |
 
 #### Error Handling Performance
@@ -182,6 +185,7 @@ When choosing a schema validation library, bundle size can be an important facto
 | @sinclair/typebox | 228 734.49 ± 0.55%            | 4.37 ± 0.56%            |
 | ArkType           | 258 685.33 ± 1.23%            | 3.87 ± 1.23%            |
 | effect/Schema     | 165 753.69 ± 0.99%            | 6.03 ± 1.00%            |
+| Valibot           | 1 401 537.68 ± 1.02%          | 0.71 ± 1.02%            |
 | `AJV`             | `19 693 821.79 ± 1.81%`       | `0.05 ± 1.83%`          |
 
 **Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
