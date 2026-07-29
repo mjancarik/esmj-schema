@@ -1,3 +1,7 @@
+## 0.9.0 (2026-07-29)
+
+* fix: 🐛 remove stale error/errors keys from successful optional/ ([b39932b](https://github.com/mjancarik/esmj-schema/commit/b39932b))
+* feat: 🎸 add clone() method and fix union/optional error handlin ([5664e7d](https://github.com/mjancarik/esmj-schema/commit/5664e7d))
 ## <small>0.8.2 (2026-07-27)</small>
 
 * ci: 🎡 set trusting publisher ([8ffa44e](https://github.com/mjancarik/esmj-schema/commit/8ffa44e))
