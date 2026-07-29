@@ -184,4 +184,33 @@ describe('Array Extensions - Edge Cases', () => {
     assert.strictEqual(result1.success, true);
     assert.strictEqual(result2.success, false);
   });
+
+  it('should include index 0 in error.cause.key when the first item is invalid', () => {
+    const schema = s.array(s.string());
+    const result = schema.safeParse([123]);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.error.cause.key, '0');
+    assert.match(result.error.message, /Error parsing key "0"/);
+  });
+
+  it('should include the correct index in error.cause.key for later items', () => {
+    const schema = s.array(s.string());
+    const result = schema.safeParse(['ok', 123]);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.error.cause.key, '1');
+  });
+
+  it('should build a dotted path like "1.0" for nested arrays failing at index 0', () => {
+    const schema = s.array(s.array(s.string()));
+    const result = schema.safeParse([['ok'], [123]]);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.error.cause.key, '1.0');
+  });
+
+  it('should build "arr.0" when an array field at index 0 is nested in an object', () => {
+    const schema = s.object({ arr: s.array(s.string()) });
+    const result = schema.safeParse({ arr: [123] });
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.error.cause.key, 'arr.0');
+  });
 });

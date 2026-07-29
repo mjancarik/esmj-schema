@@ -68,7 +68,12 @@
     "./dist/full.cjs",
     "./src/coerce.ts",
     "./dist/coerce.mjs",
-    "./dist/coerce.cjs"
+    "./dist/coerce.cjs",
+    "./dist/chunk-5YFULRRG.mjs",
+    "./dist/chunk-7QAYVQU7.mjs",
+    "./dist/chunk-FL26LLRE.mjs",
+    "./dist/chunk-TJFB76QY.mjs",
+    "./dist/chunk-U4FHCIGR.mjs"
   ],
   "typings": "dist/index.d.ts",
   "scripts": {
@@ -83,7 +88,7 @@
     "postversion": "git push && git push --tags",
     "commit": "node_modules/.bin/git-cz",
     "changelog": "node_modules/.bin/conventional-changelog -p angular -i CHANGELOG.md -s -r 1",
-    "build": "node_modules/.bin/tsup --dts",
+    "build": "node_modules/.bin/tsup --dts && node utils/syncSideEffects.mjs && node utils/verifyDtsEntryPoints.mjs",
     "prepare": "husky install"
   },
   "repository": {

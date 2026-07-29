@@ -403,5 +403,33 @@ describe('s.cast', () => {
       assert.equal(schema.parse(undefined), undefined);
       assert.equal(schema.parse('42'), 42);
     });
+
+    it('propagates abortEarly:false to a wrapped object schema', () => {
+      const schema = s.cast.json(
+        s.object({
+          a: s.string(),
+          b: s.string(),
+          c: s.string(),
+        }),
+      );
+
+      const result = schema.safeParse('{"a":1,"b":2,"c":3}', {
+        abortEarly: false,
+      });
+
+      assert.equal(result.success, false);
+      assert.equal(result.errors.length, 3);
+    });
+
+    it('propagates abortEarly:false to a wrapped array schema', () => {
+      const schema = s.cast.json(s.array(s.number()));
+
+      const result = schema.safeParse('["a","b",3,"d"]', {
+        abortEarly: false,
+      });
+
+      assert.equal(result.success, false);
+      assert.equal(result.errors.length, 3);
+    });
   });
 });

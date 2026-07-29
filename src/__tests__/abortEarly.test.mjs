@@ -106,8 +106,12 @@ describe('abortEarly option', () => {
     );
 
     assert.strictEqual(result.success, false);
-    assert(result.errors.length === 1);
-    assert(result.errors.some((e) => e.message.includes('union value')));
+    // Both branches fail with 2 field errors each (id + type)
+    assert.strictEqual(result.errors.length, 4);
+    assert(result.errors.some((e) => e.message.includes('branch 0.id')));
+    assert(result.errors.some((e) => e.message.includes('branch 0.type')));
+    assert(result.errors.some((e) => e.message.includes('branch 1.id')));
+    assert(result.errors.some((e) => e.message.includes('branch 1.type')));
   });
 
   it('empty object is validated correctly with abortEarly=false', () => {
@@ -351,10 +355,11 @@ describe('abortEarly option', () => {
 
     assert.strictEqual(result.success, false);
 
-    // The union schema should collect errors from both schemas
+    // The union schema should collect field-level errors from both branches
     assert(result.errors.length >= 1);
 
-    // Check that the first error is a union error
-    assert(result.error.message.includes('union'));
+    // Errors should reference which branch they came from and the nested field path
+    assert(result.errors.some((e) => e.message.includes('branch 0.type')));
+    assert(result.errors.some((e) => e.message.includes('branch 1.type')));
   });
 });

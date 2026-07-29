@@ -1,6 +1,7 @@
 import {
   type NumberSchemaInterface,
   type SchemaInterfaceOptions,
+  type SchemaInterfaceOptions as SchemaInterfaceOptions_,
   type SchemaType,
   extend,
 } from './index.ts';
@@ -10,19 +11,25 @@ export * from './index.ts';
 declare module './index.ts' {
   interface NumberSchemaInterface {
     // Number range validations
-    min(value: number, options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    max(value: number, options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    positive(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    negative(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    int(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    float(options?: SchemaInterfaceOptions): NumberSchemaInterface;
+    min(
+      value: number,
+      options?: SchemaInterfaceOptions_,
+    ): NumberSchemaInterface;
+    max(
+      value: number,
+      options?: SchemaInterfaceOptions_,
+    ): NumberSchemaInterface;
+    positive(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    negative(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    int(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    float(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
     multipleOf(
       value: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): NumberSchemaInterface;
 
     // Additional number validations
-    finite(options?: SchemaInterfaceOptions): NumberSchemaInterface;
+    finite(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
   }
 }
 

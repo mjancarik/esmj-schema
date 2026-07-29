@@ -281,7 +281,7 @@ function scenarioParseSchema(testData) {
   });
 
   result['effect/Schema'] = benchmark('effect/Schema', () => {
-    Schema.encodeEither(effectSchema)(testData);
+    Schema.decodeUnknownEither(effectSchema)(testData);
   });
 
   result.Valibot = benchmark('Valibot', () => {

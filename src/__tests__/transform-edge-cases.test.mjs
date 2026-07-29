@@ -115,6 +115,34 @@ describe('Transform and Preprocess Edge Cases', () => {
     assert.strictEqual(result2, undefined);
   });
 
+  it('should handle transform with nullable', () => {
+    const schema = s
+      .string()
+      .nullable()
+      .transform((v) => v?.toUpperCase());
+
+    const result1 = schema.parse('hello');
+    const result2 = schema.parse(null);
+
+    assert.strictEqual(result1, 'HELLO');
+    assert.strictEqual(result2, undefined);
+  });
+
+  it('should handle transform with nullish', () => {
+    const schema = s
+      .string()
+      .nullish()
+      .transform((v) => v?.toUpperCase());
+
+    const result1 = schema.parse('hello');
+    const result2 = schema.parse(null);
+    const result3 = schema.parse(undefined);
+
+    assert.strictEqual(result1, 'HELLO');
+    assert.strictEqual(result2, undefined);
+    assert.strictEqual(result3, undefined);
+  });
+
   it('should handle preprocess with validation', () => {
     const schema = s.preprocess(
       (value) => (typeof value === 'string' ? value.trim() : value),

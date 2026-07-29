@@ -1,5 +1,6 @@
 import {
   type SchemaInterfaceOptions,
+  type SchemaInterfaceOptions as SchemaInterfaceOptions_,
   type SchemaType,
   type StringSchemaInterface,
   extend,
@@ -12,30 +13,30 @@ declare module './index.ts' {
     // String length validations
     min(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
     max(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
     length(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
-    nonEmpty(options?: SchemaInterfaceOptions): StringSchemaInterface;
+    nonEmpty(options?: SchemaInterfaceOptions_): StringSchemaInterface;
 
     // String pattern validations
     startsWith(
       prefix: string,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
     endsWith(
       suffix: string,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
     includes(
       substring: string,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): StringSchemaInterface;
 
     // String transformations
