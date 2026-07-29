@@ -113,7 +113,7 @@ const result = schema.parse({
 - **Parsing**: Parse data at up to **33,620,146 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **4,627,714 ops/s** (**0.22 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,142,587 ops/s** (**0.32 μs**), with ArkType and effect/Schema also performing strongly.
 - **Error Handling**: Handle validation errors at up to **19,693,821 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,428,049 ops/s** (**0.41 μs**) with a developer-friendly API.
 
-Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~1.6 KB` core).
+Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.2 KB` core, see the bundle size comparison below).
 
 For most TypeScript applications, it offers a practical balance of performance, size, and developer ergonomics. If absolute peak throughput in a single category is the only goal, some specialized options (for example, AJV or TypeBox in specific tests) can be faster.
 
@@ -123,7 +123,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library           | Bundle Size (minified + gzipped) |
 |-------------------|---------------------------------|
-| `@esmj/schema`    | `~1.6 KB`                       |
+| `@esmj/schema`    | `~2.2 KB`                       |
 | Superstruct       | ~3.2 KB                         |
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
@@ -198,7 +198,9 @@ When choosing a schema validation library, bundle size can be an important facto
 import { s, type Infer} from '@esmj/schema';
 
 const schema = s.object({
-  username: s.string().optional().refine((val) => val.length <= 255, {
+  // .refine() runs after .optional(), so the value can be `undefined` here —
+  // guard against it (see the `refine()` docs below for details).
+  username: s.string().optional().refine((val) => val === undefined || val.length <= 255, {
     message: "Username can't be more than 255 characters",
   }),
   password: s.string().default('unknown'),
@@ -206,9 +208,9 @@ const schema = s.object({
   account: s.string().default('0').transform((value) => Number.parseInt(value)).pipe(s.number()),
   money: s.number(),
   address: s.object({
-    street: s.string(),
+    street: s.string().default('unknown'),
     city: s.string().optional(),
-  }).default({ street: 'unknown' }),
+  }).default({}),
   records: s.array(s.object({ name: s.string() })).default([]),
 });
 
@@ -243,10 +245,10 @@ console.log(result);
 ### Import Options
 
 ```typescript
-// Minimal version (core only, ~1.5 KB)
+// Minimal version (core only, ~2.2 KB)
 import { s } from '@esmj/schema';
 
-// Full version (all extensions included, ~4 KB)
+// Full version (all extensions included, ~2.9 KB)
 import { s } from '@esmj/schema/full';
 
 // String extensions only
@@ -275,14 +277,18 @@ import { coerce, cast } from '@esmj/schema';
 import { functionSchema, enumSchema } from '@esmj/schema';
 ```
 
+> **CommonJS (`require`) note:** The examples above assume an ESM environment (`import`). The package also ships CommonJS builds (`require('@esmj/schema')`), but the CJS output is **not code-split** — each CJS entry point (`index.cjs`, `string.cjs`, `number.cjs`, `array.cjs`, `coerce.cjs`) bundles its own private copy of the core module instead of sharing one via chunks (as the ESM `.mjs` builds do). If you `require()` more than one of these entry points (e.g. `@esmj/schema/string` and `@esmj/schema/number`) alongside `@esmj/schema`, you end up with multiple duplicated copies of the core code, each with its own isolated `extend()` registry and internal state. This means `s` from one entry point is not the same object as `s` from another, so extensions and side-effect imports **won't reliably propagate across entry points** in CJS.
+>
+> **In CommonJS projects, only use `require('@esmj/schema')` or `require('@esmj/schema/full')`.** Avoid mixing individual extension requires (`@esmj/schema/string`, `@esmj/schema/number`, `@esmj/schema/array`, `@esmj/schema/coerce`) in CJS — pull in `@esmj/schema/full` instead if you need more than the core.
+
 ### Bundle Size Impact
 
-- **Core only** (`@esmj/schema`): ~1.5 KB gzipped
-- **String extensions** (`@esmj/schema/string`): +~0.8 KB
-- **Number extensions** (`@esmj/schema/number`): +~0.6 KB
-- **Array extensions** (`@esmj/schema/array`): +~0.5 KB
-- **Coerce extensions** (`@esmj/schema/coerce`): +~0.3 KB
-- **Full** (`@esmj/schema/full`): ~4 KB gzipped (all extensions)
+- **Core only** (`@esmj/schema`): ~2.2 KB gzipped
+- **String extensions** (`@esmj/schema/string`): +~0.3 KB
+- **Number extensions** (`@esmj/schema/number`): +~0.3 KB
+- **Array extensions** (`@esmj/schema/array`): +~0.3 KB
+- **Coerce extensions** (`@esmj/schema/coerce`): +~0.1 KB
+- **Full** (`@esmj/schema/full`): ~2.9 KB gzipped (all extensions)
 
 **Recommendation:** Import only the extensions you need to minimize bundle size.
 
@@ -613,7 +619,7 @@ Available when importing from `@esmj/schema/number` or `@esmj/schema/full`:
 **Type Validations:**
 - `.int()` - Must be integer
 - `.float()` - Must be float (non-integer)
-- `.multipleOf(n)` - Must be multiple of n
+- `.multipleOf(n)` - Must be multiple of n (uses `%`; for non-integer `n` this is subject to floating-point precision, e.g. `0.3 % 0.1 !== 0` — prefer integers or scale values when precision matters)
 - `.finite()` - Must be finite
 
 ### Array Extensions
@@ -996,6 +1002,36 @@ s.cast.json(s.number(), { message: 'Invalid JSON' }).parse('bad');     // throws
 
 ### Schema Methods
 
+**⚠️ Mutability note:** Modifier methods (`optional()`, `nullable()`, `nullish()`, `transform()`, `refine()`, `default()`, `catch()`, `pipe()`) mutate and return the **same** schema instance rather than creating a copy. If you store a schema in a variable and reuse it in multiple places (e.g. inside `s.object({...})`), calling a modifier on that variable later will retroactively affect every place it's used, since they all reference the same object.
+
+```typescript
+const base = s.string();
+const requiredUser = s.object({ name: base });
+
+requiredUser.safeParse({}); // { success: false, ... } — name is required
+
+base.optional();
+
+requiredUser.safeParse({}); // { success: true, ... } — name is now optional too!
+```
+
+To avoid this, call modifiers directly in the chain instead of reusing a schema reference:
+
+```typescript
+const requiredUser = s.object({ name: s.string() });
+const optionalName = s.string().optional(); // separate instance, safe to reuse
+```
+
+If you do need to keep a reusable base schema around, call `.clone()` before handing it off to another place, so later modifiers only affect the copy:
+
+```typescript
+const base = s.string();
+const requiredUser = s.object({ name: base.clone() });
+
+base.optional(); // only affects `base`, requiredUser.name is still required
+requiredUser.safeParse({}); // { success: false, ... }
+```
+
 #### `parse(value, parseOptions?)`
 
 Parses the given value according to the schema.
@@ -1107,7 +1143,11 @@ const transformedSchema = s.string().transform((value) => value.toUpperCase());
 Pipes the output of one schema into another schema for further validation or transformation.
 
 ```typescript
-const pipedSchema = s.string().pipe(s.number());
+const pipedSchema = s.string()
+  .transform((value) => Number.parseInt(value, 10))
+  .pipe(s.number().refine((val) => val > 0, { message: 'Number must be positive' }));
+
+pipedSchema.parse('42'); // 42
 ```
 
 #### `refine(validation, { message })`
@@ -1119,6 +1159,21 @@ const refinedSchema = s.string().refine((val) => val.length <= 255, {
   message: "String can't be more than 255 characters",
 });
 ```
+
+#### `clone()`
+
+Creates an independent shallow copy of the schema. Use it when you want to keep a reusable base schema around and hand off copies to other places (e.g. `s.object({...})` field definitions) without later modifiers on the original (or the copy) affecting each other. See the [Mutability note](#schema-methods) above for the underlying issue this solves.
+
+```typescript
+const base = s.string();
+const clone = base.clone();
+
+clone.optional();
+base.safeParse(undefined);  // { success: false, ... } — base is unaffected
+clone.safeParse(undefined); // { success: true, ... }
+```
+
+**Note:** This is a shallow clone. For `s.object({...})` / `s.array(...)` schemas, the nested field schemas passed in the definition remain shared references — clone them individually first if you need full independence.
 
 #### Error Collection with `abortEarly` Option
 
@@ -1621,7 +1676,7 @@ const userSchema = s.object({
 |---------|-----|--------------|
 | Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
 | Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
-| Bundle size | ~13 KB | ~1.4 KB (core), ~4 KB (full) |
+| Bundle size | ~13 KB | ~2.2 KB (core), ~2.9 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |

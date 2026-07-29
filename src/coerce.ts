@@ -1,10 +1,15 @@
 import {
   type BooleanSchemaInterface,
+  type BooleanSchemaInterface as BooleanSchemaInterface_,
   type CoerceInterface,
   type DateSchemaInterface,
+  type DateSchemaInterface as DateSchemaInterface_,
   type NumberSchemaInterface,
+  type NumberSchemaInterface as NumberSchemaInterface_,
   type SchemaInterfaceOptions,
+  type SchemaInterfaceOptions as SchemaInterfaceOptions_,
   type StringSchemaInterface,
+  type StringSchemaInterface as StringSchemaInterface_,
   boolean,
   date,
   number,
@@ -21,23 +26,23 @@ declare module './index.ts' {
      * Creates a string schema that coerces input using `String(value)`.
      * Always succeeds — `String()` never produces an invalid string.
      */
-    string(options?: SchemaInterfaceOptions): StringSchemaInterface;
+    string(options?: SchemaInterfaceOptions_): StringSchemaInterface_;
     /**
      * Creates a number schema that coerces input using `Number(value)`.
      * Fails when the result is `NaN` (e.g. `'bad'`, `undefined`, plain objects).
      */
-    number(options?: SchemaInterfaceOptions): NumberSchemaInterface;
+    number(options?: SchemaInterfaceOptions_): NumberSchemaInterface_;
     /**
      * Creates a boolean schema that coerces input using `Boolean(value)`.
      * Always succeeds — `Boolean()` always produces `true` or `false`.
      * Note: `Boolean('false')` is `true` because `'false'` is a non-empty string.
      */
-    boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface;
+    boolean(options?: SchemaInterfaceOptions_): BooleanSchemaInterface_;
     /**
      * Creates a date schema that coerces input using `new Date(value)`.
      * Fails when the result is an invalid Date (e.g. `'garbage'`).
      */
-    date(options?: SchemaInterfaceOptions): DateSchemaInterface;
+    date(options?: SchemaInterfaceOptions_): DateSchemaInterface_;
   }
 }
 

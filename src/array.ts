@@ -1,31 +1,33 @@
 import {
   type ArraySchemaInterface,
   type SchemaInterfaceOptions,
+  type SchemaInterfaceOptions as SchemaInterfaceOptions_,
   type SchemaType,
+  type SchemaType as SchemaType_,
   extend,
 } from './index.ts';
 
 export * from './index.ts';
 
 declare module './index.ts' {
-  interface ArraySchemaInterface<T extends SchemaType> {
+  interface ArraySchemaInterface<T extends SchemaType_> {
     // Array size validations
     min(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): ArraySchemaInterface<T>;
     max(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): ArraySchemaInterface<T>;
     length(
       length: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): ArraySchemaInterface<T>;
-    nonEmpty(options?: SchemaInterfaceOptions): ArraySchemaInterface<T>;
+    nonEmpty(options?: SchemaInterfaceOptions_): ArraySchemaInterface<T>;
 
     // Array content validations
-    unique(options?: SchemaInterfaceOptions): ArraySchemaInterface<T>;
+    unique(options?: SchemaInterfaceOptions_): ArraySchemaInterface<T>;
 
     // Array transformations
     sort(): ArraySchemaInterface<T>;

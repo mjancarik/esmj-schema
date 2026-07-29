@@ -1,6 +1,7 @@
 import {
   type NumberSchemaInterface,
   type SchemaInterfaceOptions,
+  type SchemaInterfaceOptions as SchemaInterfaceOptions_,
   type SchemaType,
   extend,
 } from './index.ts';
@@ -10,19 +11,25 @@ export * from './index.ts';
 declare module './index.ts' {
   interface NumberSchemaInterface {
     // Number range validations
-    min(value: number, options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    max(value: number, options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    positive(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    negative(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    int(options?: SchemaInterfaceOptions): NumberSchemaInterface;
-    float(options?: SchemaInterfaceOptions): NumberSchemaInterface;
+    min(
+      value: number,
+      options?: SchemaInterfaceOptions_,
+    ): NumberSchemaInterface;
+    max(
+      value: number,
+      options?: SchemaInterfaceOptions_,
+    ): NumberSchemaInterface;
+    positive(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    negative(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    int(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
+    float(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
     multipleOf(
       value: number,
-      options?: SchemaInterfaceOptions,
+      options?: SchemaInterfaceOptions_,
     ): NumberSchemaInterface;
 
     // Additional number validations
-    finite(options?: SchemaInterfaceOptions): NumberSchemaInterface;
+    finite(options?: SchemaInterfaceOptions_): NumberSchemaInterface;
   }
 }
 
@@ -85,6 +92,9 @@ extend((schema: SchemaType, _, options) => {
       value,
       { message }: SchemaInterfaceOptions = {},
     ) {
+      // Note: uses `%`, so non-integer `value` (e.g. 0.1) is subject to
+      // floating-point precision (0.3 % 0.1 !== 0). Prefer integers when exact
+      // precision matters.
       return this.refine((num) => num % value === 0, {
         message: message || `Number must be a multiple of ${value}.`,
       }) as unknown as NumberSchemaInterface;

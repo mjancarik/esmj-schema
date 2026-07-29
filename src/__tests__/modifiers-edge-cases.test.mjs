@@ -9,6 +9,40 @@ describe('Modifiers Edge Cases', () => {
     assert.strictEqual(result, 'fallback');
   });
 
+  it('should not leak stale error/errors keys on a successful optional() result', () => {
+    const schema = s.string().optional();
+    const result = schema.safeParse(undefined);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.data, undefined);
+    assert.strictEqual('error' in result, false);
+    assert.strictEqual('errors' in result, false);
+  });
+
+  it('should not leak stale error/errors keys on a successful nullable() result', () => {
+    const schema = s.string().nullable();
+    const result = schema.safeParse(null);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.data, null);
+    assert.strictEqual('error' in result, false);
+    assert.strictEqual('errors' in result, false);
+  });
+
+  it('should not leak stale error/errors keys on a successful nullish() result', () => {
+    const schema = s.string().nullish();
+    const resultNull = schema.safeParse(null);
+    const resultUndefined = schema.safeParse(undefined);
+
+    assert.strictEqual(resultNull.success, true);
+    assert.strictEqual('error' in resultNull, false);
+    assert.strictEqual('errors' in resultNull, false);
+
+    assert.strictEqual(resultUndefined.success, true);
+    assert.strictEqual('error' in resultUndefined, false);
+    assert.strictEqual('errors' in resultUndefined, false);
+  });
+
   it('should handle nullable with default', () => {
     const schema = s.string().nullable().default('fallback');
     const result1 = schema.parse(null);
@@ -39,6 +73,109 @@ describe('Modifiers Edge Cases', () => {
     const result2 = schema.safeParse(undefined);
     assert.strictEqual(result1.success, true);
     assert.strictEqual(result2.success, true);
+  });
+
+  it('should mutate a shared schema instance when a modifier is applied after reuse (known gotcha)', () => {
+    // Modifiers like optional()/nullable()/nullish() patch the schema's
+    // internal _parse in place and return `this`, they do not clone the
+    // schema. Because `s.object()` stores a direct reference to the schema
+    // instances passed in its definition, calling a modifier on `base`
+    // *after* it was already used inside `requiredUser` retroactively
+    // changes how `requiredUser` validates the `name` field too, since both
+    // point at the very same schema instance.
+    const base = s.string();
+    const requiredUser = s.object({ name: base });
+
+    // Before mutation, `name` is required.
+    assert.strictEqual(requiredUser.safeParse({}).success, false);
+
+    base.optional();
+
+    // After calling optional() on the shared `base` instance, `requiredUser`
+    // is affected too, even though `optional()` was never called on
+    // `requiredUser` or its `name` field directly.
+    assert.strictEqual(requiredUser.safeParse({}).success, true);
+  });
+
+  it('should fix the shared-instance gotcha when clone() is used before reuse', () => {
+    // Calling clone() before handing the schema off to s.object() produces
+    // an independent instance, so mutating the original `base` afterwards
+    // no longer affects `requiredUser`.
+    const base = s.string();
+    const requiredUser = s.object({ name: base.clone() });
+
+    assert.strictEqual(requiredUser.safeParse({}).success, false);
+
+    base.optional();
+
+    // requiredUser is unaffected because it holds a cloned, independent copy.
+    assert.strictEqual(requiredUser.safeParse({}).success, false);
+    // The original `base` schema itself is optional now, as expected.
+    assert.strictEqual(base.safeParse(undefined).success, true);
+  });
+
+  it('should produce an independent instance from clone()', () => {
+    const original = s.string();
+    const clone = original.clone();
+
+    assert.notStrictEqual(clone, original);
+
+    // Mutating the clone must not affect the original.
+    clone.optional();
+    assert.strictEqual(original.safeParse(undefined).success, false);
+    assert.strictEqual(clone.safeParse(undefined).success, true);
+  });
+
+  it('should not affect a clone when the original is mutated afterwards', () => {
+    const original = s.string();
+    const clone = original.clone();
+
+    original.optional();
+
+    assert.strictEqual(original.safeParse(undefined).success, true);
+    assert.strictEqual(clone.safeParse(undefined).success, false);
+  });
+
+  it('should keep clone() unaffected by nullable()/nullish()/default()/catch()/pipe()/refine()/transform() applied to the original', () => {
+    // These modifiers previously closed over the schema instance created by
+    // createSchemaInterface directly instead of using `this`, which would
+    // have silently mutated the original even when called via a clone (or
+    // vice versa). This test guards against that regressing.
+    const original = s.string();
+    const clone = original.clone();
+
+    original.nullish();
+    assert.strictEqual(clone.safeParse(null).success, false);
+
+    const original2 = s.string();
+    const clone2 = original2.clone();
+    original2.default('fallback');
+    assert.throws(() => clone2.parse(undefined));
+
+    const original3 = s.string();
+    const clone3 = original3.clone();
+    original3.catch('fallback');
+    assert.strictEqual(clone3.safeParse(123).success, false);
+
+    const original4 = s.string();
+    const clone4 = original4.clone();
+    original4.pipe(s.string().transform((v) => v.toUpperCase()));
+    assert.strictEqual(clone4.parse('hello'), 'hello');
+
+    const original5 = s.string();
+    const clone5 = original5.clone();
+    original5.refine((v) => v.length > 3, { message: 'too short' });
+    assert.strictEqual(clone5.safeParse('ab').success, true);
+
+    const original6 = s.string();
+    const clone6 = original6.clone();
+    original6.transform((v) => v.toUpperCase());
+    assert.strictEqual(clone6.parse('hello'), 'hello');
+
+    const original7 = s.string();
+    const clone7 = original7.clone();
+    original7.nullable();
+    assert.strictEqual(clone7.safeParse(null).success, false);
   });
 
   it('should handle default with transform', () => {

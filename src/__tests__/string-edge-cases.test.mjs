@@ -30,6 +30,21 @@ describe('String Extensions - Edge Cases', () => {
     assert.strictEqual(result, '00000hello');
   });
 
+  it('should clone a schema with extension methods already chained', () => {
+    const original = s.string().trim().toLowerCase();
+    const clone = original.clone();
+
+    // The clone must support further chaining with extension methods.
+    const strict = clone.min(3);
+
+    assert.strictEqual(strict.parse('  HELLO  '), 'hello');
+    assert.strictEqual(strict.safeParse('  HI  ').success, false);
+
+    // The original schema (without the extra min(3) constraint) must be
+    // unaffected by chaining performed on the clone.
+    assert.strictEqual(original.parse('  HI  '), 'hi');
+  });
+
   it('should handle replace with regex flags', () => {
     const schema = s.string().replace(/hello/gi, 'goodbye');
     const result = schema.parse('Hello HELLO hello');

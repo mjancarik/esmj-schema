@@ -22,6 +22,10 @@ type ValidationMethod<Input, Output> = (
   value: Input | Partial<Input>,
 ) => boolean | InternalParseOutput<Output>;
 
+type RefinementMethod<Output> = (
+  value: Output,
+) => boolean | InternalParseOutput<Output>;
+
 interface ParseOptions {
   abortEarly?: boolean;
 }
@@ -40,9 +44,9 @@ export interface SchemaInterface<Input, Output> {
     value: Input | Partial<Input>,
     options?: ParseOptions,
   ): InternalParseOutput<Output>;
-  optional(): SchemaInterface<Input, Partial<Output> | undefined>;
+  optional(): SchemaInterface<Input, Output | undefined>;
   transform<NewOutput>(
-    callback: (value: Input) => NewOutput,
+    callback: (value: Output) => NewOutput,
   ): SchemaInterface<Input, NewOutput>;
   nullable(): SchemaInterface<Input, Output | null>;
   nullish(): SchemaInterface<Input, Output | undefined | null>;
@@ -56,11 +60,27 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Input, Output>;
   pipe<NewOutput>(
     schema: SchemaInterface<Output, NewOutput>,
-  ): SchemaInterface<Output, NewOutput>;
+  ): SchemaInterface<Input, NewOutput>;
   refine(
-    validation: ValidationMethod<Input, Output>,
+    validation: RefinementMethod<Output>,
     options?: CreateSchemaInterfaceOptions,
   ): SchemaInterface<Input, Output>;
+  /**
+   * Creates an independent copy of the schema.
+   *
+   * Modifier methods (`optional`, `nullable`, `nullish`, `transform`,
+   * `default`, `catch`, `pipe`, `refine`) mutate the schema instance in
+   * place and return `this`. If a schema instance is reused in multiple
+   * places (e.g. passed into `s.object({...})` and also kept in a
+   * variable), calling a modifier on that shared reference later
+   * retroactively affects every place it's used. Call `clone()` first to
+   * get an independent instance that can be modified safely without
+   * affecting the original (or vice versa).
+   *
+   * Note: this is a shallow clone — for `object()`/`array()` schemas, the
+   * nested field schemas passed in the definition remain shared references.
+   */
+  clone(): SchemaInterface<Input, Output>;
 }
 
 export interface LiteralSchemaInterface<T extends string | number | boolean>
@@ -168,7 +188,7 @@ function formatError(
   error: ErrorStructure,
   parentKey?: string | number,
 ): ErrorStructure {
-  if (!parentKey) return error;
+  if (parentKey === undefined) return error;
 
   const errorKey = error?.cause?.key
     ? `${parentKey}.${error.cause.key}`
@@ -192,10 +212,54 @@ function propagateNestedErrors(
   }
 }
 
+// Shared failure-path handling for object()/array() item validation: returns
+// an early-return Invalid result when abortEarly is enabled, otherwise
+// accumulates nested errors into `errors` and returns undefined so the caller
+// continues iterating.
+function handleItemFailure(
+  item: Invalid,
+  key: string | number,
+  abortEarly: boolean | undefined,
+  errors: ErrorStructure[],
+): Invalid | undefined {
+  if (abortEarly !== false) {
+    const formattedError = formatError(item.error, key);
+    return {
+      success: false,
+      error: formattedError,
+      errors: [formattedError],
+    };
+  }
+
+  propagateNestedErrors(item, errors, key);
+
+  return undefined;
+}
+
 function resolveParseOptions(parseOptions?: ParseOptions): ParseOptions {
   return parseOptions?.abortEarly !== undefined
     ? parseOptions
     : defaultParseOptions;
+}
+
+// Shared by optional()/nullable()/nullish(): converts a failed parse into a
+// successful one carrying `value` when `predicate(value)` matches.
+function applyNullishModifier<Output>(
+  schema: SchemaInterface<unknown, Output>,
+  predicate: (value: unknown) => boolean,
+): void {
+  hookOriginal(schema, '_parse', (originalParse, value, parseOptions) => {
+    const item = originalParse(value, parseOptions);
+
+    if (!item.success && predicate(value)) {
+      // Return a clean Valid<Output> instead of mutating `item` in place —
+      // mutating would leave the stale `error`/`errors` keys from the failed
+      // parse attached to a result whose `success` is `true`.
+      return { success: true, data: value as Output };
+    }
+
+    return item;
+  });
 }
 
 // Better type for validation methods
@@ -263,7 +327,7 @@ export function object<T extends Record<string, SchemaType>>(
     // Note: Using for...in is actually faster than Object.keys() in V8
     // despite common belief. Benchmarks show 15% better performance.
     for (const key in definition) {
-      let item = (
+      const item = (
         definition[key]._parse as (
           value: unknown,
           parseOptions?: ParseOptions,
@@ -273,18 +337,16 @@ export function object<T extends Record<string, SchemaType>>(
       if (item.success) {
         acc[key] = item.data;
       } else {
-        item = item as Invalid;
+        const failure = handleItemFailure(
+          item as Invalid,
+          key,
+          abortEarly,
+          errors,
+        );
 
-        if (abortEarly !== false) {
-          const formattedError = formatError(item.error, key);
-          return {
-            success: false,
-            error: formattedError,
-            errors: [formattedError],
-          };
+        if (failure) {
+          return failure;
         }
-
-        propagateNestedErrors(item, errors, key);
       }
     }
 
@@ -352,31 +414,28 @@ export function functionSchema(
   }) as FunctionSchemaInterface;
 }
 
-export function enumSchema(
-  definition: Readonly<Array<string>>,
+export function enumSchema<const T extends Readonly<Array<string>>>(
+  definition: T,
   options?: SchemaInterfaceOptions,
-): EnumSchemaInterface<(typeof definition)[number]> {
+): EnumSchemaInterface<T[number]> {
   const validation = (value: unknown) => definition.includes(value as string);
 
   const message = (value: unknown) =>
     `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
   const type = 'enum';
 
-  const schema = createSchemaInterface<string, (typeof definition)[number]>(
-    validation,
-    {
-      message,
-      ...options,
-      type,
-    },
-  ) as EnumSchemaInterface<(typeof definition)[number]>;
+  const schema = createSchemaInterface<string, T[number]>(validation, {
+    message,
+    ...options,
+    type,
+  }) as EnumSchemaInterface<T[number]>;
 
   // Add a more detailed description for enum schemas
   schema._getDescription = () => {
     return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
   };
 
-  return schema as EnumSchemaInterface<(typeof definition)[number]>;
+  return schema as EnumSchemaInterface<T[number]>;
 }
 
 export function array<T extends SchemaType>(
@@ -411,7 +470,7 @@ export function array<T extends SchemaType>(
 
     // Note: Not caching length in variable as V8 optimizes array.length access
     for (let index = 0; index < value.data.length; index++) {
-      let item = (
+      const item = (
         definition._parse as (
           value: unknown,
           parseOptions?: ParseOptions,
@@ -421,19 +480,16 @@ export function array<T extends SchemaType>(
       if (item.success) {
         acc.push(item.data as ReturnType<T['parse']>);
       } else {
-        item = item as Invalid;
+        const failure = handleItemFailure(
+          item as Invalid,
+          index,
+          abortEarly,
+          errors,
+        );
 
-        if (abortEarly !== false) {
-          const formattedError = formatError(item.error, index);
-
-          return {
-            success: false,
-            error: formattedError,
-            errors: [formattedError],
-          };
+        if (failure) {
+          return failure;
         }
-
-        propagateNestedErrors(item, errors, index);
       }
     }
 
@@ -463,10 +519,10 @@ export function preprocess<T extends SchemaType>(
   callback: Function,
   schema: T,
 ): T {
-  hookOriginal(schema, '_parse', (originalParse, value) => {
+  hookOriginal(schema, '_parse', (originalParse, value, parseOptions) => {
     value = callback(value);
 
-    return originalParse(value);
+    return originalParse(value, parseOptions);
   });
 
   return schema as T;
@@ -483,27 +539,67 @@ export function union<T extends Array<SchemaType>>(
       objectValidation(value) ? JSON.stringify(value) : `"${value}"`
     }`;
 
-  const validation = (value: unknown) => {
+  const schema = createSchemaInterface<
+    ReturnType<T[number]['parse']>,
+    ReturnType<T[number]['parse']>
+  >(() => false, {
+    message,
+    ...options,
+    type: 'union',
+  });
+
+  hookOriginal(schema, '_parse', (_originalParse, data, parseOptions) => {
+    const resolvedOptions = parseOptions as ParseOptions | undefined;
+    const branchResults: Invalid[] = [];
+
     for (let index = 0; index < definitions.length; index++) {
       const result = (
         definitions[index]._parse as (
           value: unknown,
+          parseOptions?: ParseOptions,
         ) => InternalParseOutput<ReturnType<T[number]['parse']>>
-      )(value);
+      )(data, resolvedOptions);
+
       if (result.success) {
-        return result as InternalParseOutput<ReturnType<T[number]['parse']>>;
+        return result;
+      }
+
+      branchResults.push(result as Invalid);
+    }
+
+    const { abortEarly } = resolveParseOptions(resolvedOptions);
+    const genericError = {
+      message: typeof message === 'function' ? message(data) : message,
+    };
+
+    if (abortEarly !== false) {
+      return { success: false, error: genericError, errors: [genericError] };
+    }
+
+    // Only surface field-level branch errors (i.e. errors that carry a
+    // `cause.key`, meaning they originate from a nested object/array
+    // schema). Plain type-mismatch errors from leaf schemas (string,
+    // number, ...) don't add information beyond the generic union
+    // message, so they're skipped to avoid noisy duplicate errors.
+    const errors: ErrorStructure[] = [];
+
+    for (let index = 0; index < branchResults.length; index++) {
+      const branchErrors = branchResults[index].errors;
+
+      if (!branchErrors?.length) continue;
+
+      for (let i = 0; i < branchErrors.length; i++) {
+        if (branchErrors[i].cause?.key) {
+          errors.push(formatError(branchErrors[i], `branch ${index}`));
+        }
       }
     }
-    return false;
-  };
 
-  const schema = createSchemaInterface<
-    ReturnType<T[number]['parse']>,
-    ReturnType<T[number]['parse']>
-  >(validation, {
-    message,
-    ...options,
-    type: 'union',
+    if (errors.length === 0) {
+      errors.push(genericError);
+    }
+
+    return { success: false, error: errors[0], errors };
   });
 
   return schema as UnionSchemaInterface<T>;
@@ -648,7 +744,7 @@ export const cast = {
     hookOriginal(
       schema,
       '_parse',
-      (originalParse: Function, value: unknown) => {
+      (originalParse: Function, value: unknown, parseOptions) => {
         if (stringValidation(value)) {
           try {
             value = JSON.parse(value);
@@ -659,12 +755,14 @@ export const cast = {
             return { success: false, error, errors: [error] };
           }
         }
-        return originalParse(value);
+        return originalParse(value, parseOptions);
       },
     );
     return schema;
   },
 };
+
+export const coerce = {} as CoerceInterface;
 
 export const s = {
   object,
@@ -679,7 +777,7 @@ export const s = {
   preprocess,
   union,
   literal,
-  coerce: {} as CoerceInterface,
+  coerce,
   cast,
 };
 
@@ -785,7 +883,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     parse(value, parseOptions) {
-      let item = defaultInterface._parse(value, parseOptions);
+      let item = this._parse(value, parseOptions);
 
       if (!item.success) {
         item = item as Invalid;
@@ -815,10 +913,16 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     safeParse(value, parseOptions) {
-      return defaultInterface._parse(value, parseOptions);
+      return this._parse(value, parseOptions);
     },
     /**
      * Transforms the validated value using a callback function.
+     *
+     * The callback receives the schema's *current* output type at the point
+     * `transform()` is called in the chain. If `transform()` is applied after
+     * `optional()`, `nullable()`, or `nullish()`, the value can be `undefined`
+     * and/or `null`, and the callback still runs for those values (it is not
+     * skipped) — guard against them yourself (e.g. `value?.toUpperCase()`).
      *
      * @param callback - Function to transform the validated value
      * @returns The schema with transformation applied
@@ -827,6 +931,10 @@ function createSchemaInterface<Input, Output>(
      * ```typescript
      * const schema = s.string().transform(val => val.toUpperCase());
      * const result = schema.parse('hello'); // 'HELLO'
+     *
+     * // After optional()/nullable()/nullish(), guard against null/undefined
+     * const optionalSchema = s.string().optional().transform(val => val?.toUpperCase());
+     * optionalSchema.parse(undefined); // undefined
      * ```
      */
     transform(callback) {
@@ -861,16 +969,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     optional() {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
-        const item = originalParse(value, parseOptions);
-
-        if (!item.success && value === undefined) {
-          item.data = undefined;
-          item.success = true; // Mark as success since we are allowing undefined
-        }
-
-        return item;
-      });
+      applyNullishModifier(this, (value) => value === undefined);
 
       return this;
     },
@@ -888,17 +987,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     nullable() {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
-        const item = originalParse(value, parseOptions);
-
-        if (!item.success && value === null) {
-          item.data = null;
-          item.success = true;
-          return item;
-        }
-
-        return item;
-      });
+      applyNullishModifier(this, (value) => value === null);
 
       return this;
     },
@@ -916,16 +1005,10 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     nullish() {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
-        const item = originalParse(value, parseOptions);
-
-        if (!item.success && (value === undefined || value === null)) {
-          item.success = true; // Mark as success since we are allowing undefined or null
-          item.data = value;
-        }
-
-        return item;
-      });
+      applyNullishModifier(
+        this,
+        (value) => value === undefined || value === null,
+      );
 
       return this;
     },
@@ -1035,10 +1118,18 @@ function createSchemaInterface<Input, Output>(
         );
       });
 
-      return this as unknown as typeof schema;
+      return this as unknown as SchemaInterface<
+        Input,
+        ReturnType<typeof schema.parse>
+      >;
     },
     /**
      * Adds custom validation logic to the schema.
+     *
+     * The validation callback receives the schema's *current* output type at
+     * the point `refine()` is called in the chain. If `refine()` is applied
+     * after `optional()`, `nullable()`, or `nullish()`, the value can be
+     * `undefined` and/or `null` — guard against them in the callback if needed.
      *
      * @param validation - Function that returns true if value is valid
      * @param options - Optional configuration with custom error message and type
@@ -1095,6 +1186,23 @@ function createSchemaInterface<Input, Output>(
       });
 
       return this;
+    },
+    /**
+     * Creates an independent shallow copy of this schema instance.
+     *
+     * @returns A new schema instance with the same behavior as this one
+     *
+     * @example
+     * ```typescript
+     * const base = s.string();
+     * const requiredUser = s.object({ name: base.clone() });
+     *
+     * base.optional();
+     * requiredUser.safeParse({}); // { success: false, ... } — unaffected by base's mutation
+     * ```
+     */
+    clone() {
+      return { ...this };
     },
   };
 
