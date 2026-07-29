@@ -50,6 +50,8 @@ jobs:
 
       - name: Unit tests
         run: npm test
+      - name: Type check
+        run: npm run typecheck
       - name: Linter
         run: npm run lint
       - name: Build

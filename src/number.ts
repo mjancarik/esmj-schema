@@ -92,6 +92,9 @@ extend((schema: SchemaType, _, options) => {
       value,
       { message }: SchemaInterfaceOptions = {},
     ) {
+      // Note: uses `%`, so non-integer `value` (e.g. 0.1) is subject to
+      // floating-point precision (0.3 % 0.1 !== 0). Prefer integers when exact
+      // precision matters.
       return this.refine((num) => num % value === 0, {
         message: message || `Number must be a multiple of ${value}.`,
       }) as unknown as NumberSchemaInterface;

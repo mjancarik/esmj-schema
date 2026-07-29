@@ -9,6 +9,40 @@ describe('Modifiers Edge Cases', () => {
     assert.strictEqual(result, 'fallback');
   });
 
+  it('should not leak stale error/errors keys on a successful optional() result', () => {
+    const schema = s.string().optional();
+    const result = schema.safeParse(undefined);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.data, undefined);
+    assert.strictEqual('error' in result, false);
+    assert.strictEqual('errors' in result, false);
+  });
+
+  it('should not leak stale error/errors keys on a successful nullable() result', () => {
+    const schema = s.string().nullable();
+    const result = schema.safeParse(null);
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.data, null);
+    assert.strictEqual('error' in result, false);
+    assert.strictEqual('errors' in result, false);
+  });
+
+  it('should not leak stale error/errors keys on a successful nullish() result', () => {
+    const schema = s.string().nullish();
+    const resultNull = schema.safeParse(null);
+    const resultUndefined = schema.safeParse(undefined);
+
+    assert.strictEqual(resultNull.success, true);
+    assert.strictEqual('error' in resultNull, false);
+    assert.strictEqual('errors' in resultNull, false);
+
+    assert.strictEqual(resultUndefined.success, true);
+    assert.strictEqual('error' in resultUndefined, false);
+    assert.strictEqual('errors' in resultUndefined, false);
+  });
+
   it('should handle nullable with default', () => {
     const schema = s.string().nullable().default('fallback');
     const result1 = schema.parse(null);

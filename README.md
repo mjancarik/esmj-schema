@@ -113,7 +113,7 @@ const result = schema.parse({
 - **Parsing**: Parse data at up to **33,620,146 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **4,627,714 ops/s** (**0.22 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,142,587 ops/s** (**0.32 μs**), with ArkType and effect/Schema also performing strongly.
 - **Error Handling**: Handle validation errors at up to **19,693,821 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,428,049 ops/s** (**0.41 μs**) with a developer-friendly API.
 
-Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~1.6 KB` core).
+Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.2 KB` core, see the bundle size comparison below).
 
 For most TypeScript applications, it offers a practical balance of performance, size, and developer ergonomics. If absolute peak throughput in a single category is the only goal, some specialized options (for example, AJV or TypeBox in specific tests) can be faster.
 
@@ -198,7 +198,9 @@ When choosing a schema validation library, bundle size can be an important facto
 import { s, type Infer} from '@esmj/schema';
 
 const schema = s.object({
-  username: s.string().optional().refine((val) => val.length <= 255, {
+  // .refine() runs after .optional(), so the value can be `undefined` here —
+  // guard against it (see the `refine()` docs below for details).
+  username: s.string().optional().refine((val) => val === undefined || val.length <= 255, {
     message: "Username can't be more than 255 characters",
   }),
   password: s.string().default('unknown'),
@@ -206,9 +208,9 @@ const schema = s.object({
   account: s.string().default('0').transform((value) => Number.parseInt(value)).pipe(s.number()),
   money: s.number(),
   address: s.object({
-    street: s.string(),
+    street: s.string().default('unknown'),
     city: s.string().optional(),
-  }).default({ street: 'unknown' }),
+  }).default({}),
   records: s.array(s.object({ name: s.string() })).default([]),
 });
 
@@ -246,7 +248,7 @@ console.log(result);
 // Minimal version (core only, ~2.2 KB)
 import { s } from '@esmj/schema';
 
-// Full version (all extensions included, ~2,9 KB)
+// Full version (all extensions included, ~2.9 KB)
 import { s } from '@esmj/schema/full';
 
 // String extensions only
@@ -286,7 +288,7 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 - **Number extensions** (`@esmj/schema/number`): +~0.3 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.3 KB
 - **Coerce extensions** (`@esmj/schema/coerce`): +~0.1 KB
-- **Full** (`@esmj/schema/full`): ~2,9 KB gzipped (all extensions)
+- **Full** (`@esmj/schema/full`): ~2.9 KB gzipped (all extensions)
 
 **Recommendation:** Import only the extensions you need to minimize bundle size.
 
@@ -617,7 +619,7 @@ Available when importing from `@esmj/schema/number` or `@esmj/schema/full`:
 **Type Validations:**
 - `.int()` - Must be integer
 - `.float()` - Must be float (non-integer)
-- `.multipleOf(n)` - Must be multiple of n
+- `.multipleOf(n)` - Must be multiple of n (uses `%`; for non-integer `n` this is subject to floating-point precision, e.g. `0.3 % 0.1 !== 0` — prefer integers or scale values when precision matters)
 - `.finite()` - Must be finite
 
 ### Array Extensions
@@ -1141,7 +1143,11 @@ const transformedSchema = s.string().transform((value) => value.toUpperCase());
 Pipes the output of one schema into another schema for further validation or transformation.
 
 ```typescript
-const pipedSchema = s.string().pipe(s.number());
+const pipedSchema = s.string()
+  .transform((value) => Number.parseInt(value, 10))
+  .pipe(s.number().refine((val) => val > 0, { message: 'Number must be positive' }));
+
+pipedSchema.parse('42'); // 42
 ```
 
 #### `refine(validation, { message })`
@@ -1670,7 +1676,7 @@ const userSchema = s.object({
 |---------|-----|--------------|
 | Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
 | Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
-| Bundle size | ~13 KB | ~2.2 KB (core), ~2,9 KB (full) |
+| Bundle size | ~13 KB | ~2.2 KB (core), ~2.9 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |

@@ -44,7 +44,7 @@ export interface SchemaInterface<Input, Output> {
     value: Input | Partial<Input>,
     options?: ParseOptions,
   ): InternalParseOutput<Output>;
-  optional(): SchemaInterface<Input, Partial<Output> | undefined>;
+  optional(): SchemaInterface<Input, Output | undefined>;
   transform<NewOutput>(
     callback: (value: Output) => NewOutput,
   ): SchemaInterface<Input, NewOutput>;
@@ -60,7 +60,7 @@ export interface SchemaInterface<Input, Output> {
   ): SchemaInterface<Input, Output>;
   pipe<NewOutput>(
     schema: SchemaInterface<Output, NewOutput>,
-  ): SchemaInterface<Output, NewOutput>;
+  ): SchemaInterface<Input, NewOutput>;
   refine(
     validation: RefinementMethod<Output>,
     options?: CreateSchemaInterfaceOptions,
@@ -252,8 +252,10 @@ function applyNullishModifier<Output>(
     const item = originalParse(value, parseOptions);
 
     if (!item.success && predicate(value)) {
-      item.success = true;
-      item.data = value;
+      // Return a clean Valid<Output> instead of mutating `item` in place —
+      // mutating would leave the stale `error`/`errors` keys from the failed
+      // parse attached to a result whose `success` is `true`.
+      return { success: true, data: value as Output };
     }
 
     return item;
@@ -412,31 +414,28 @@ export function functionSchema(
   }) as FunctionSchemaInterface;
 }
 
-export function enumSchema(
-  definition: Readonly<Array<string>>,
+export function enumSchema<const T extends Readonly<Array<string>>>(
+  definition: T,
   options?: SchemaInterfaceOptions,
-): EnumSchemaInterface<(typeof definition)[number]> {
+): EnumSchemaInterface<T[number]> {
   const validation = (value: unknown) => definition.includes(value as string);
 
   const message = (value: unknown) =>
     `Invalid ${type} value. Expected ${definition.map((value) => `"${value}"`).join(' | ')}, received "${value}".`;
   const type = 'enum';
 
-  const schema = createSchemaInterface<string, (typeof definition)[number]>(
-    validation,
-    {
-      message,
-      ...options,
-      type,
-    },
-  ) as EnumSchemaInterface<(typeof definition)[number]>;
+  const schema = createSchemaInterface<string, T[number]>(validation, {
+    message,
+    ...options,
+    type,
+  }) as EnumSchemaInterface<T[number]>;
 
   // Add a more detailed description for enum schemas
   schema._getDescription = () => {
     return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
   };
 
-  return schema as EnumSchemaInterface<(typeof definition)[number]>;
+  return schema as EnumSchemaInterface<T[number]>;
 }
 
 export function array<T extends SchemaType>(
@@ -745,7 +744,7 @@ export const cast = {
     hookOriginal(
       schema,
       '_parse',
-      (originalParse: Function, value: unknown, parseOptions: unknown) => {
+      (originalParse: Function, value: unknown, parseOptions) => {
         if (stringValidation(value)) {
           try {
             value = JSON.parse(value);
@@ -1119,7 +1118,10 @@ function createSchemaInterface<Input, Output>(
         );
       });
 
-      return this as unknown as typeof schema;
+      return this as unknown as SchemaInterface<
+        Input,
+        ReturnType<typeof schema.parse>
+      >;
     },
     /**
      * Adds custom validation logic to the schema.
