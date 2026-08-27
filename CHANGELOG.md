@@ -1,3 +1,6 @@
+## <small>0.9.1 (2026-08-27)</small>
+
+* feat: 🎸 add Standard Schema / Standard JSON Schema support ([e87751e](https://github.com/mjancarik/esmj-schema/commit/e87751e))
 ## 0.9.0 (2026-07-29)
 
 * fix: 🐛 remove stale error/errors keys from successful optional/ ([b39932b](https://github.com/mjancarik/esmj-schema/commit/b39932b))
