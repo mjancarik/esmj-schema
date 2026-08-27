@@ -15,6 +15,7 @@ This small library provides a simple schema validation system for JavaScript/Typ
   - [Number Extensions](#number-extensions-esmjschemanumber)
   - [Array Extensions](#array-extensions-esmjschemaarray)
   - [Coerce Extensions](#coerce-extensions-esmjschemacoerce)
+  - [Standard Schema / JSON Schema Extensions](#standard-schema--json-schema-extensions-esmjschemastandard)
   - [Full Extensions](#full-extensions-esmjschemafull)
   - [Named Exports & Tree-Shaking](#named-exports--tree-shaking)
 - [API Reference Summary](#api-reference-summary)
@@ -248,7 +249,7 @@ console.log(result);
 // Minimal version (core only, ~2.2 KB)
 import { s } from '@esmj/schema';
 
-// Full version (all extensions included, ~2.9 KB)
+// Full version (string + number + array + coerce, ~3.0 KB)
 import { s } from '@esmj/schema/full';
 
 // String extensions only
@@ -263,10 +264,14 @@ import { s } from '@esmj/schema/array';
 // Coerce extensions only
 import { s } from '@esmj/schema/coerce';
 
+// Standard Schema / Standard JSON Schema support only
+import { s } from '@esmj/schema/standard';
+
 // Mix and match (side-effect imports)
 import '@esmj/schema/string';
 import '@esmj/schema/number';
 import '@esmj/schema/coerce';
+import '@esmj/schema/standard';
 import { s } from '@esmj/schema';
 
 // Tree-shakeable named exports — bundle only what you use
@@ -279,7 +284,7 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 
 > **CommonJS (`require`) note:** The examples above assume an ESM environment (`import`). The package also ships CommonJS builds (`require('@esmj/schema')`), but the CJS output is **not code-split** — each CJS entry point (`index.cjs`, `string.cjs`, `number.cjs`, `array.cjs`, `coerce.cjs`) bundles its own private copy of the core module instead of sharing one via chunks (as the ESM `.mjs` builds do). If you `require()` more than one of these entry points (e.g. `@esmj/schema/string` and `@esmj/schema/number`) alongside `@esmj/schema`, you end up with multiple duplicated copies of the core code, each with its own isolated `extend()` registry and internal state. This means `s` from one entry point is not the same object as `s` from another, so extensions and side-effect imports **won't reliably propagate across entry points** in CJS.
 >
-> **In CommonJS projects, only use `require('@esmj/schema')` or `require('@esmj/schema/full')`.** Avoid mixing individual extension requires (`@esmj/schema/string`, `@esmj/schema/number`, `@esmj/schema/array`, `@esmj/schema/coerce`) in CJS — pull in `@esmj/schema/full` instead if you need more than the core.
+> **In CommonJS projects, only use `require('@esmj/schema')` or `require('@esmj/schema/full')`.** Avoid mixing individual extension requires (`@esmj/schema/string`, `@esmj/schema/number`, `@esmj/schema/array`, `@esmj/schema/coerce`) in CJS — pull in `@esmj/schema/full` instead if you need more than the core. `@esmj/schema/standard` is **not** bundled into `full` (it's a separate, special-purpose extension) — the same duplication caveat applies if you `require('@esmj/schema/standard')` alongside another CJS entry point, so make sure it's the *only* other entry point you require besides one of the two above.
 
 ### Bundle Size Impact
 
@@ -288,9 +293,10 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 - **Number extensions** (`@esmj/schema/number`): +~0.3 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.3 KB
 - **Coerce extensions** (`@esmj/schema/coerce`): +~0.1 KB
-- **Full** (`@esmj/schema/full`): ~2.9 KB gzipped (all extensions)
+- **Standard Schema / JSON Schema extensions** (`@esmj/schema/standard`, on top of core): +~1.3 KB
+- **Full** (`@esmj/schema/full`): ~3.0 KB gzipped (string + number + array + coerce — does **not** include `standard`)
 
-**Recommendation:** Import only the extensions you need to minimize bundle size.
+**Recommendation:** Import only the extensions you need to minimize bundle size. `standard` is a special-purpose extension (Standard Schema / JSON Schema interop) — add it on top of `full` only if you actually consume `~standard`.
 
 ### Named Exports & Tree-Shaking
 
@@ -469,6 +475,71 @@ s.coerce.number({ message: 'Expected a numeric value' }).parse('bad'); // throws
 | `s.coerce.number(options?)` | `Number(v)` | Result is `NaN` |
 | `s.coerce.boolean(options?)` | `Boolean(v)` | Never |
 | `s.coerce.date(options?)` | `new Date(v)` | Result is an invalid Date |
+
+### Standard Schema / JSON Schema Extensions (`@esmj/schema/standard`)
+
+The standard extension attaches a `~standard` property to every schema, implementing both [Standard Schema](https://standardschema.dev) (a common `validate()` interface consumed by many frameworks/libraries) and [Standard JSON Schema](https://standardschema.dev/json-schema) (a common `jsonSchema.input()`/`jsonSchema.output()` conversion interface, e.g. for OpenAPI docs, AI tool schemas, or form generators).
+
+> **Note:** `~standard` is opt-in and **not** included in `@esmj/schema/full` — it's a special-purpose extension, so import `@esmj/schema/standard` explicitly to activate it. Importing only the core `@esmj/schema` (or `@esmj/schema/full`) without it leaves `~standard` undefined. If you also use `.min()`/`.max()`/etc. from `string`/`number`/`array` extensions, import `@esmj/schema/standard` **after** those, so it can wrap the already-installed methods.
+
+```typescript
+import { s } from '@esmj/schema/full';
+import '@esmj/schema/standard';
+
+const userSchema = s.object({
+  name: s.string().min(3).max(50),
+  age: s.number().int().positive().optional(),
+});
+
+// Standard Schema: validate() — consumed by any Standard-Schema-aware tool
+const result = userSchema['~standard'].validate({ name: 'Al', age: 30 });
+if (result.issues) {
+  console.error(result.issues); // [{ message, path }]
+} else {
+  console.log(result.value);
+}
+
+// Standard JSON Schema: jsonSchema.input()/output() — convert to JSON Schema
+userSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' });
+// {
+//   $schema: 'https://json-schema.org/draft/2020-12/schema',
+//   type: 'object',
+//   properties: {
+//     name: { type: 'string', minLength: 3, maxLength: 50 },
+//     age: { type: 'integer', exclusiveMinimum: 0 },
+//   },
+//   required: ['name'],
+//   additionalProperties: false,
+// }
+```
+
+**Supported targets:** `"draft-07"` and `"draft-2020-12"` (both strongly recommended by the spec; output is structurally identical between them for this library's keyword set — only the `$schema` URI differs). Calling with any other target throws.
+
+**`validate()` vs `jsonSchema.input()`/`jsonSchema.output()`:** these are orthogonal per the spec — `validate()` runs actual parsing (identical to `safeParse()`, reshaped into `{ value }` / `{ issues }`), while `jsonSchema.*` only introspects the schema's *shape* without running any data through it. `input()` describes what `parse()` accepts; `output()` describes what `parse()` returns (they differ when `transform()`/`pipe()` change the output type).
+
+**Constraint → JSON Schema keyword mapping:**
+
+| Schema | JSON Schema keywords |
+|---|---|
+| `s.string().min/max/length/nonEmpty()` | `minLength`, `maxLength` |
+| `s.string().startsWith/endsWith/includes()` | `pattern` (or `allOf: [{pattern}, ...]` if more than one is chained) |
+| `s.number().min/max()` | `minimum`, `maximum` |
+| `s.number().positive/negative()` | `exclusiveMinimum: 0` / `exclusiveMaximum: 0` |
+| `s.number().int()` | `type: 'integer'` |
+| `s.number().multipleOf()` | `multipleOf` |
+| `s.array().min/max/length/nonEmpty()` | `minItems`, `maxItems` |
+| `s.array().unique()` | `uniqueItems: true` |
+| `.optional()` | field excluded from parent object's `required` |
+| `.nullable()` | `type` becomes `[baseType, 'null']` (or `anyOf` with `{type: 'null'}` if the base has no scalar `type`, e.g. `union`/`enum`) |
+| `.default(value)` | `default` keyword (only for static values, not default-producing functions) |
+
+**Limitations:**
+
+- **`transform()` without a hint throws on `.output()`.** This library can't infer how an arbitrary callback reshapes data, so `jsonSchema.output()` throws unless you provide an explicit JSON Schema fragment: `.transform(fn, { jsonSchema: { type: 'number' } })`. `jsonSchema.input()` is unaffected and always works, since `transform()` runs after input validation.
+- **`.pipe(otherSchema)`** delegates `jsonSchema.output()` to `otherSchema`'s own `jsonSchema.output()` — no hint needed.
+- **`s.coerce.*` schemas** report the same `jsonSchema.input()` shape as their non-coerced equivalent (e.g. `s.coerce.number()` still reports `{ type: 'number' }`), since the coercion step is an opaque preprocessing function.
+- **`"openapi-3.0"` target is not supported** in this release.
+- Field/item/branch introspection (for `object()`/`array()`/`union()`/`enumSchema()`/`literal()`) requires the schema to have been created through this library's factories — arbitrary hand-built objects satisfying `SchemaInterface` won't expose their internal shape.
 
 ### Full Extensions (`@esmj/schema/full`)
 
@@ -1318,6 +1389,46 @@ try {
 }
 ```
 
+#### Contributing JSON Schema Hints from Custom Methods
+
+If [`@esmj/schema/standard`](#standard-schema--json-schema-extensions-esmjschemastandard)
+is also imported, custom `extend()`-added constraint methods can describe their JSON
+Schema impact by passing a `jsonSchema` option to `refine()`. `standard.ts` never needs
+to know the method's name — it reads these fragments generically via
+`schema._getJsonSchemaHints()` and merges them into `~standard.jsonSchema.input()` /
+`.output()`:
+
+```typescript
+import { extend, s } from '@esmj/schema';
+import '@esmj/schema/standard';
+
+extend((schema: SchemaType, _, options) => {
+  if (options?.type === 'string') {
+    const stringSchema = schema as StringSchemaInterface;
+
+    stringSchema.email = function () {
+      return this.refine((value) => EMAIL_REGEX.test(value), {
+        message: 'Invalid email format',
+        jsonSchema: { format: 'email' },
+      });
+    };
+  }
+
+  return schema;
+});
+
+s.string().email()['~standard'].jsonSchema.input({ target: 'draft-07' });
+// { $schema: '...', type: 'string', format: 'email' }
+```
+
+Notes:
+- `jsonSchema` is ignored if `@esmj/schema/standard` isn't imported — it's a
+  no-op hint, safe to include unconditionally.
+- Repeated hints on `minLength`/`minimum`/`minItems` (and their `max`/exclusive
+  counterparts) are merged to the strictest bound; a single `pattern` hint is set
+  directly, multiple `pattern` hints combine via `allOf`; everything else is
+  last-hint-wins.
+
 #### Advanced Extensions
 
 You can extend any schema type and add complex validations:
@@ -1676,7 +1787,7 @@ const userSchema = s.object({
 |---------|-----|--------------|
 | Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
 | Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
-| Bundle size | ~13 KB | ~2.2 KB (core), ~2.9 KB (full) |
+| Bundle size | ~13 KB | ~2.2 KB (core), ~3.0 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |

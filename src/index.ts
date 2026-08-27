@@ -35,6 +35,24 @@ export interface SchemaInterface<Input, Output> {
   _getName(): undefined | string;
   _getType(): string;
   _getDescription(): string;
+  /**
+   * Exposes the internal definition of composite schemas (the field map for
+   * `object()`, the item schema for `array()`, the branch schemas for
+   * `union()`, the allowed values for `enumSchema()`, or the literal value
+   * for `literal()`). Returns `undefined` for leaf schemas (string, number,
+   * etc.) that have no internal definition to expose.
+   * @internal
+   */
+  _getDefinition?(): unknown;
+  /**
+   * Returns the JSON Schema keyword fragments accumulated by `refine()`
+   * calls that passed a `jsonSchema` option, in call order. Returns
+   * `undefined` if none were provided. Consumed by `@esmj/schema/standard`
+   * to describe constraints (e.g. `min()`/`max()`) without that module
+   * needing to know about every individual constraint method by name.
+   * @internal
+   */
+  _getJsonSchemaHints?(): ReadonlyArray<Record<string, unknown>>;
   _parse(
     value: Input | Partial<Input>,
     options?: ParseOptions,
@@ -45,8 +63,19 @@ export interface SchemaInterface<Input, Output> {
     options?: ParseOptions,
   ): InternalParseOutput<Output>;
   optional(): SchemaInterface<Input, Output | undefined>;
+  /**
+   * @param options.jsonSchema Describes the JSON Schema impact of this
+   * transform for `@esmj/schema/standard`, ignored if that module isn't
+   * imported: a fragment object explicitly declares the new output shape;
+   * `null` declares the transform as shape-preserving (e.g. `string.trim()`,
+   * `array.sort()` still produce a string/array with the same constraints);
+   * omitting the option marks the output shape as unexplained, which causes
+   * `~standard.jsonSchema.output()` to throw unless a later `.pipe()`/
+   * `.transform()` call supplies an explicit hint.
+   */
   transform<NewOutput>(
     callback: (value: Output) => NewOutput,
+    options?: { jsonSchema?: Record<string, unknown> | null },
   ): SchemaInterface<Input, NewOutput>;
   nullable(): SchemaInterface<Input, Output | null>;
   nullish(): SchemaInterface<Input, Output | undefined | null>;
@@ -177,6 +206,23 @@ interface CreateSchemaInterfaceOptions {
   name?: string;
   type?: string;
   message?: ErrorMessage;
+  /**
+   * Optional JSON Schema keyword fragment describing the constraint being
+   * added by this `refine()` call (e.g. `{ minLength: 3 }`). Collected via
+   * `_getJsonSchemaHints()` and consumed by `@esmj/schema/standard`; ignored
+   * if that module isn't imported.
+   *
+   * Note: this option is only meaningful when calling `refine()` directly
+   * (e.g. from a custom `extend()`-added method). Because
+   * `SchemaInterfaceOptions` (the options type accepted by built-in
+   * constraint methods like `min()`/`max()`/`startsWith()`/etc.) is derived
+   * from this same interface, TypeScript will also allow `jsonSchema` to be
+   * passed to those calls (e.g. `s.string().min(3, { jsonSchema: {...} })`)
+   * — but it has no effect there: each built-in constraint method always
+   * supplies its own fixed `jsonSchema` fragment to its internal `refine()`
+   * call and ignores whatever the caller passed under this key.
+   */
+  jsonSchema?: Record<string, unknown>;
 }
 export type SchemaInterfaceOptions = Omit<CreateSchemaInterfaceOptions, 'type'>;
 
@@ -311,6 +357,9 @@ export function object<T extends Record<string, SchemaType>>(
     return `object({ ${fieldDescriptions} })`;
   };
 
+  // Exposes the field schema map (used by e.g. the standard.ts extender).
+  schema._getDefinition = () => definition;
+
   hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
     const value = originalParse(data, parseOptions);
     const { abortEarly } = resolveParseOptions(
@@ -435,6 +484,9 @@ export function enumSchema<const T extends Readonly<Array<string>>>(
     return `enum(${definition.map((value) => `"${value}"`).join(' | ')})`;
   };
 
+  // Exposes the allowed values (used by e.g. the standard.ts extender).
+  schema._getDefinition = () => definition;
+
   return schema as EnumSchemaInterface<T[number]>;
 }
 
@@ -454,6 +506,9 @@ export function array<T extends SchemaType>(
   schema._getDescription = () => {
     return `array(${(definition as SchemaInterface<unknown, unknown>)._getDescription()})`;
   };
+
+  // Exposes the item schema (used by e.g. the standard.ts extender).
+  schema._getDefinition = () => definition;
 
   hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
     const value = originalParse(data, parseOptions);
@@ -548,6 +603,9 @@ export function union<T extends Array<SchemaType>>(
     type: 'union',
   });
 
+  // Exposes the branch schemas (used by e.g. the standard.ts extender).
+  schema._getDefinition = () => definitions;
+
   hookOriginal(schema, '_parse', (_originalParse, data, parseOptions) => {
     const resolvedOptions = parseOptions as ParseOptions | undefined;
     const branchResults: Invalid[] = [];
@@ -625,6 +683,9 @@ export function literal<T extends string | number | boolean>(
   });
 
   schema._getDescription = () => `literal("${value}")`;
+
+  // Exposes the literal value (used by e.g. the standard.ts extender).
+  schema._getDefinition = () => value;
 
   return schema as LiteralSchemaInterface<T>;
 }
@@ -1146,10 +1207,19 @@ function createSchemaInterface<Input, Output>(
      * schema.parse('goodbye'); // throws error
      * ```
      */
-    refine(validation, { message, type: newType } = {}) {
+    refine(validation, { message, type: newType, jsonSchema } = {}) {
       if (newType) {
         message = message || errorMessageFactory(newType);
         type = newType;
+      }
+
+      if (jsonSchema) {
+        // Reassigned as an own property on `this` (like hookOriginal does
+        // for `_parse`) rather than captured in a closure variable, so a
+        // clone that diverges from its original (`base.clone().min(3)`)
+        // never leaks hints into — or receives them from — its sibling.
+        const hints = [...(this._getJsonSchemaHints?.() ?? []), jsonSchema];
+        this._getJsonSchemaHints = () => hints;
       }
 
       hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {

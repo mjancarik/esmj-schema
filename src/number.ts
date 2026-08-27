@@ -45,6 +45,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((num) => num >= value, {
         message: message || `Number must be greater than or equal to ${value}.`,
+        jsonSchema: { minimum: value },
       }) as unknown as NumberSchemaInterface;
     };
 
@@ -54,6 +55,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((num) => num <= value, {
         message: message || `Number must be less than or equal to ${value}.`,
+        jsonSchema: { maximum: value },
       }) as unknown as NumberSchemaInterface;
     };
 
@@ -62,6 +64,7 @@ extend((schema: SchemaType, _, options) => {
     }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => num > 0, {
         message: message || 'Number must be positive.',
+        jsonSchema: { exclusiveMinimum: 0 },
       }) as unknown as NumberSchemaInterface;
     };
 
@@ -70,12 +73,14 @@ extend((schema: SchemaType, _, options) => {
     }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => num < 0, {
         message: message || 'Number must be negative.',
+        jsonSchema: { exclusiveMaximum: 0 },
       }) as unknown as NumberSchemaInterface;
     };
 
     numberSchema.int = function ({ message }: SchemaInterfaceOptions = {}) {
       return this.refine((num) => Number.isInteger(num), {
         message: message || 'Number must be an integer.',
+        jsonSchema: { type: 'integer' },
       }) as unknown as NumberSchemaInterface;
     };
 
@@ -84,6 +89,7 @@ extend((schema: SchemaType, _, options) => {
         (num) => Number.isFinite(num) && !Number.isInteger(num),
         {
           message: message || 'Number must be a floating point (non-integer).',
+          jsonSchema: { not: { type: 'integer' } },
         },
       ) as unknown as NumberSchemaInterface;
     };
@@ -97,6 +103,7 @@ extend((schema: SchemaType, _, options) => {
       // precision matters.
       return this.refine((num) => num % value === 0, {
         message: message || `Number must be a multiple of ${value}.`,
+        jsonSchema: { multipleOf: value },
       }) as unknown as NumberSchemaInterface;
     };
 

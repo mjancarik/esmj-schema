@@ -51,6 +51,11 @@
       "types": "./dist/coerce.d.ts",
       "import": "./dist/coerce.mjs",
       "require": "./dist/coerce.cjs"
+    },
+    "./standard": {
+      "types": "./dist/standard.d.ts",
+      "import": "./dist/standard.mjs",
+      "require": "./dist/standard.cjs"
     }
   },
   "sideEffects": [
@@ -69,11 +74,14 @@
     "./src/coerce.ts",
     "./dist/coerce.mjs",
     "./dist/coerce.cjs",
-    "./dist/chunk-67WNOIG5.mjs",
-    "./dist/chunk-DYW6P2MO.mjs",
-    "./dist/chunk-FJR7W2M5.mjs",
-    "./dist/chunk-HHDVNOAH.mjs",
-    "./dist/chunk-ZIJRE6V7.mjs"
+    "./src/standard.ts",
+    "./dist/standard.mjs",
+    "./dist/standard.cjs",
+    "./dist/chunk-BSSWP7FV.mjs",
+    "./dist/chunk-DKTY5LWQ.mjs",
+    "./dist/chunk-HW3HMJIN.mjs",
+    "./dist/chunk-L6DLTBOE.mjs",
+    "./dist/chunk-LK3OXXHB.mjs"
   ],
   "typings": "dist/index.d.ts",
   "scripts": {

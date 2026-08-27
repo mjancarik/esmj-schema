@@ -47,6 +47,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length >= length, {
         message: message || `Array must contain at least ${length} items.`,
+        jsonSchema: { minItems: length },
       }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
@@ -56,6 +57,7 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length <= length, {
         message: message || `Array must contain at most ${length} items.`,
+        jsonSchema: { maxItems: length },
       }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
@@ -65,12 +67,14 @@ extend((schema: SchemaType, _, options) => {
     ) {
       return this.refine((arr) => arr.length === length, {
         message: message || `Array must contain exactly ${length} items.`,
+        jsonSchema: { minItems: length, maxItems: length },
       }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.nonEmpty = function ({ message }: SchemaInterfaceOptions = {}) {
       return this.refine((arr) => arr.length > 0, {
         message: message || 'Array must not be empty.',
+        jsonSchema: { minItems: 1 },
       }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
@@ -94,21 +98,22 @@ extend((schema: SchemaType, _, options) => {
         },
         {
           message: message || 'Array items must be unique.',
+          jsonSchema: { uniqueItems: true },
         },
       ) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     // Array transformations
     arraySchema.sort = function () {
-      return this.transform((arr) =>
-        [...arr].sort(),
-      ) as unknown as ArraySchemaInterface<SchemaType>;
+      return this.transform((arr) => [...arr].sort(), {
+        jsonSchema: null,
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
 
     arraySchema.reverse = function () {
-      return this.transform((arr) =>
-        [...arr].reverse(),
-      ) as unknown as ArraySchemaInterface<SchemaType>;
+      return this.transform((arr) => [...arr].reverse(), {
+        jsonSchema: null,
+      }) as unknown as ArraySchemaInterface<SchemaType>;
     };
   }
 
