@@ -26,6 +26,7 @@ This small library provides a simple schema validation system for JavaScript/Typ
   - [parse](#parsevalue-parseoptions)
   - [safeParse](#safeparsevalue-parseoptions)
   - [Error Collection with abortEarly](#error-collection-with-abortearly-option)
+  - [Parse Context & Cross-Field Derivation](#parse-context--cross-field-derivation)
 - [Extending Schemas](#extending-schemas)
 - [More Examples](#more-examples)
 - [Examples Folder](#examples-folder)
@@ -114,7 +115,7 @@ const result = schema.parse({
 - **Parsing**: Parse data at up to **33,620,146 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **4,627,714 ops/s** (**0.22 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,142,587 ops/s** (**0.32 μs**), with ArkType and effect/Schema also performing strongly.
 - **Error Handling**: Handle validation errors at up to **19,693,821 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,428,049 ops/s** (**0.41 μs**) with a developer-friendly API.
 
-Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.2 KB` core, see the bundle size comparison below).
+Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.3 KB` core, see the bundle size comparison below).
 
 For most TypeScript applications, it offers a practical balance of performance, size, and developer ergonomics. If absolute peak throughput in a single category is the only goal, some specialized options (for example, AJV or TypeBox in specific tests) can be faster.
 
@@ -124,7 +125,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library           | Bundle Size (minified + gzipped) |
 |-------------------|---------------------------------|
-| `@esmj/schema`    | `~2.2 KB`                       |
+| `@esmj/schema`    | `~2.3 KB`                       |
 | Superstruct       | ~3.2 KB                         |
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
@@ -246,7 +247,7 @@ console.log(result);
 ### Import Options
 
 ```typescript
-// Minimal version (core only, ~2.2 KB)
+// Minimal version (core only, ~2.3 KB)
 import { s } from '@esmj/schema';
 
 // Full version (string + number + array + coerce, ~3.0 KB)
@@ -288,7 +289,7 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 
 ### Bundle Size Impact
 
-- **Core only** (`@esmj/schema`): ~2.2 KB gzipped
+- **Core only** (`@esmj/schema`): ~2.3 KB gzipped
 - **String extensions** (`@esmj/schema/string`): +~0.3 KB
 - **Number extensions** (`@esmj/schema/number`): +~0.3 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.3 KB
@@ -1166,10 +1167,39 @@ const nullishSchema = stringSchema.nullish();
 
 #### `default(defaultValue)`
 
-Sets a default value for the schema.
+Sets a default value for the schema. Only fires when the input is `undefined` — if a value is provided, it's used as-is (and still validated).
 
 ```typescript
 const defaultSchema = stringSchema.default('default value');
+
+// With a function
+const timestampSchema = s.number().default(() => Date.now());
+```
+
+The function form receives `{ context }` (from `parseOptions.context`), so a single `.default()` call gives you a `value ?? context ?? literal` fallback chain for one field, without any extra primitive:
+
+```typescript
+const orderSchema = s.number().default(({ context }) => context?.index ?? 0);
+
+orderSchema.parse(undefined, { context: { index: 2 } }); // 2 — falls back to context
+orderSchema.parse(undefined);                             // 0 — falls back to literal
+orderSchema.parse(5, { context: { index: 2 } });          // 5 — input always wins
+```
+
+#### `derive(callback, options?)` (object schemas only)
+
+Derives one or more field values from the rest of the already-parsed row and/or from `parseOptions.context`, without a separate `.transform()` step. See [Parse Context & Cross-Field Derivation](#parse-context--cross-field-derivation) below.
+
+```typescript
+const schema = s.object({
+  id: s.string().optional(),
+  order: s.number().optional(),
+}).derive((row, { context }) => ({
+  id: row.id ?? `action:${context?.index ?? 0}`,
+  order: row.order ?? context?.index ?? 0,
+}));
+
+schema.parse({}, { context: { index: 2 } }); // { id: 'action:2', order: 2 }
 ```
 
 #### `catch(catchValue)`
@@ -1249,7 +1279,7 @@ clone.safeParse(undefined); // { success: true, ... }
 #### Error Collection with `abortEarly` Option
 
 Both `parse` and `safeParse` accept an optional second argument:
-`parseOptions: { abortEarly?: boolean }`
+`parseOptions: { abortEarly?: boolean; context?: Record<string, unknown> }`
 
 - **`abortEarly`** (default: `true`):
   If `true`, validation stops at the first error (previous behavior).
@@ -1307,6 +1337,86 @@ This means you get all errors from deeply nested structures when using `{ abortE
     { "message": "Error parsing key \"email\": ...", "cause": { "key": "email" } }
   ]
 }
+```
+
+#### Parse Context & Cross-Field Derivation
+
+`parse`/`safeParse` accept a `context?: Record<string, unknown>` option — arbitrary caller-supplied data made available while parsing, without being part of the parsed value itself (e.g. the index of the current element in a batch registration, or ambient data like the current user/tenant).
+
+```typescript
+const schema = s.object({ order: s.number() });
+schema.parse({ order: 1 }, { context: { userId: 'u1' } });
+```
+
+`s.array(...)` automatically merges `{ index }` into `context` for each element it parses — no manual loop or per-element `{ context }` plumbing needed. For nested arrays, the innermost index wins (no per-level path tracking).
+
+```typescript
+const itemSchema = s.object({
+  order: s.number().default(({ context }) => context?.index ?? 0),
+});
+
+s.array(itemSchema).parse([{}, {}, {}]);
+// [{ order: 0 }, { order: 1 }, { order: 2 }]
+```
+
+For a single field, prefer **`.default(({ context }) => ...)`** (see above) — its function form receives `{ context }`, giving you a `value ?? context ?? literal` fallback chain with no extra primitive, and it only runs when the field's own input is `undefined`.
+
+**`s.contextRef(key)`** is a lower-level leaf schema for cases where you need a context value as a field's *type* directly (e.g. composed with `.pipe()`/`.refine()`) rather than as a fallback for an otherwise-typed field. It ignores its input value entirely and resolves to `parseOptions.context[key]`. It never fails on its own (resolves to `undefined` if `context`/the key is missing). Unlike `ref()` in libraries like Yup, it only reads context — it does **not** resolve sibling fields.
+
+```typescript
+const schema = s.object({
+  order: s.contextRef('index').pipe(s.number()),
+});
+
+schema.parse({}, { context: { index: 2 } }); // { order: 2 }
+```
+
+**`.derive(callback, options?)`** (available on `s.object({...})` schemas) derives computed values for one or more fields from the rest of the already-parsed row and/or `context`, running after the object's own field-by-field parsing succeeds. Use this instead of `.default()` when a field's fallback depends on **other fields**, not just `context`:
+
+```typescript
+const slashActionRegistrationSchema = s
+  .object({
+    id: s.string().optional(),
+    label: s.string().optional(),
+    order: s.number().optional(),
+  })
+  .derive((row, { context }) => {
+    const index = context?.index ?? 0;
+
+    return {
+      id: row.id ?? `action:${index}`,
+      label: row.label ?? `Action ${index}`,
+      order: typeof row.order === 'number' ? row.order : index,
+    };
+  });
+
+slashActionRegistrationSchema.parse({}, { context: { index: 3 } });
+// { id: 'action:3', label: 'Action 3', order: 3 }
+```
+
+By default (`when: 'always'`, the default), keys returned by `callback` always override the parsed row's values. Pass `{ when: 'missing' }` to only fill in fields that parsed as `undefined`, leaving explicitly provided values untouched:
+
+```typescript
+const schema = s.object({
+  order: s.number().optional(),
+}).derive((row, { context }) => ({ order: context?.index ?? 0 }), {
+  when: 'missing',
+});
+
+schema.parse({ order: 99 }, { context: { index: 2 } }); // { order: 99 } — kept as-is
+schema.parse({}, { context: { index: 2 } });             // { order: 2 }
+```
+
+**`s.withContext(contextSchema, factory)`** validates/defaults `parseOptions.context` through `contextSchema` before building the real schema via `factory(context)`. Unlike `contextRef()` (which only reads a value out of context), it lets the schema's *shape* depend on context (e.g. select a different sub-schema, or make a field required only in certain contexts), and guarantees `factory` always receives a valid, defaulted context object instead of an untyped pass-through. It returns a lean `{ parse, safeParse }` object rather than a full schema, since the underlying schema is rebuilt from `factory(context)` on every call.
+
+```typescript
+const schema = s.withContext(
+  s.object({ index: s.number().default(0) }),
+  (context) => s.object({ order: s.number().default(context.index) }),
+);
+
+schema.parse({}, { context: { index: 5 } }); // { order: 5 }
+schema.parse({});                              // { order: 0 } — context defaulted
 ```
 
 ### Extending Schemas
@@ -1787,7 +1897,7 @@ const userSchema = s.object({
 |---------|-----|--------------|
 | Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
 | Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
-| Bundle size | ~13 KB | ~2.2 KB (core), ~3.0 KB (full) |
+| Bundle size | ~13 KB | ~2.3 KB (core), ~3.0 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |

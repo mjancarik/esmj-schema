@@ -28,6 +28,17 @@ type RefinementMethod<Output> = (
 
 interface ParseOptions {
   abortEarly?: boolean;
+  /**
+   * Arbitrary caller-supplied data made available to schemas during parsing
+   * without needing to be part of the parsed value itself — e.g. the index
+   * of the current element in a batch registration, or ambient data like the
+   * current user/tenant. Read inside a schema via `contextRef()` or the
+   * second argument of `object().derive()`.
+   *
+   * `array()` automatically merges `{ index }` into `context` for each
+   * element it parses (innermost index wins for nested arrays).
+   */
+  context?: Record<string, unknown>;
 }
 
 // @TODO Partial<Input> should be used only for optional schema keys
@@ -80,7 +91,12 @@ export interface SchemaInterface<Input, Output> {
   nullable(): SchemaInterface<Input, Output | null>;
   nullish(): SchemaInterface<Input, Output | undefined | null>;
   default(
-    defaultValue: Partial<Input> | (() => Partial<Input>) | Partial<Output>,
+    defaultValue:
+      | Partial<Input>
+      | Partial<Output>
+      | ((options: {
+          context?: Record<string, unknown>;
+        }) => Partial<Input> | Partial<Output>),
   ): SchemaInterface<Input, Output>;
   catch(
     catchValue:
@@ -143,7 +159,47 @@ export interface ObjectSchemaInterface<T extends Record<string, SchemaType>>
   extends SchemaInterface<
     { [Property in keyof T]: ReturnType<T[Property]['parse']> },
     { [Property in keyof T]: ReturnType<T[Property]['parse']> }
-  > {}
+  > {
+  /**
+   * Derives computed values for one or more fields from the rest of the
+   * already-parsed row (cross-field derivation) and/or from
+   * `parseOptions.context`, without needing a separate `.transform()` step.
+   *
+   * Runs after the object's own field-by-field parsing succeeds — unlike
+   * `default()` (per-field, only fires when that field's own input is
+   * `undefined`, sees only `{ context }`), `derive()` runs once for the
+   * whole object after every field has already been parsed, and its
+   * `callback` receives the full parsed row plus `{ context }` (from
+   * `parseOptions.context`), returning a partial object whose keys are
+   * merged over the row.
+   *
+   * @param options.when `'always'` (default) — returned keys always
+   * override the parsed row's values. `'missing'` — returned keys are only
+   * applied where the parsed row's value is `undefined`.
+   *
+   * @example
+   * ```typescript
+   * const schema = s.object({
+   *   id: s.string().optional(),
+   *   label: s.string().optional(),
+   *   order: s.number().optional(),
+   * }).derive((row, { context }) => ({
+   *   id: row.id ?? `action:${context?.index ?? 0}`,
+   *   order: row.order ?? context?.index ?? 0,
+   * }));
+   *
+   * schema.parse({ label: 'Save' }, { context: { index: 2 } });
+   * // { label: 'Save', id: 'action:2', order: 2 }
+   * ```
+   */
+  derive(
+    callback: (
+      value: { [Property in keyof T]: ReturnType<T[Property]['parse']> },
+      context: { context?: Record<string, unknown> },
+    ) => Partial<{ [Property in keyof T]: ReturnType<T[Property]['parse']> }>,
+    options?: { when?: 'always' | 'missing' },
+  ): ObjectSchemaInterface<T>;
+}
 
 export type SchemaType =
   | LiteralSchemaInterface<string>
@@ -360,6 +416,59 @@ export function object<T extends Record<string, SchemaType>>(
   // Exposes the field schema map (used by e.g. the standard.ts extender).
   schema._getDefinition = () => definition;
 
+  const objectSchema = schema as unknown as ObjectSchemaInterface<T>;
+
+  // Derives cross-field computed values from the already-parsed row and/or
+  // `parseOptions.context`. Hooked in AFTER the field-loop's own
+  // hookOriginal below is set up, so the callback (invoked lazily, once the
+  // caller calls `.derive(...)`) wraps the field-loop's `_parse` and
+  // therefore always receives the already-parsed row, not the raw input.
+  //
+  // Uses a regular `function` (not an arrow function) so `this` is bound to
+  // whichever instance the method is actually called on — including a
+  // `.clone()` — instead of always closing over the original `objectSchema`
+  // captured here. This matches every other modifier (optional/default/
+  // transform/etc.), which all use `hookOriginal(this, ...)` for the same
+  // clone-safety reason.
+  objectSchema.derive = function (callback, { when = 'always' } = {}) {
+    hookOriginal(this, '_parse', (originalParse, data, parseOptions) => {
+      const result = originalParse(data, parseOptions) as InternalParseOutput<{
+        [Property in keyof T]: ReturnType<T[Property]['parse']>;
+      }>;
+
+      if (!result.success) {
+        return result;
+      }
+
+      const overrides = callback(result.data, {
+        context: (parseOptions as ParseOptions | undefined)?.context,
+      }) as Record<string, unknown>;
+
+      if (when === 'missing') {
+        const merged = { ...result.data } as Record<string, unknown>;
+
+        for (const key in overrides) {
+          if (merged[key] === undefined) {
+            merged[key] = overrides[key];
+          }
+        }
+
+        return { success: true, data: merged } as InternalParseOutput<{
+          [Property in keyof T]: ReturnType<T[Property]['parse']>;
+        }>;
+      }
+
+      return {
+        success: true,
+        data: { ...result.data, ...overrides },
+      } as InternalParseOutput<{
+        [Property in keyof T]: ReturnType<T[Property]['parse']>;
+      }>;
+    });
+
+    return this;
+  };
+
   hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
     const value = originalParse(data, parseOptions);
     const { abortEarly } = resolveParseOptions(
@@ -415,7 +524,7 @@ export function object<T extends Record<string, SchemaType>>(
     };
   });
 
-  return schema;
+  return objectSchema;
 }
 
 export function string(
@@ -523,14 +632,25 @@ export function array<T extends SchemaType>(
     const acc = [] as Array<ReturnType<T['parse']>>;
     const errors: ErrorStructure[] = [];
 
+    const baseParseOptions = parseOptions as ParseOptions | undefined;
+
     // Note: Not caching length in variable as V8 optimizes array.length access
     for (let index = 0; index < value.data.length; index++) {
+      // Auto-inject the element's index into `context` so item schemas (and
+      // any `object().derive()`/`contextRef()` they use) can read it
+      // without the caller manually looping and passing `{ context }` per
+      // element. For nested arrays the innermost index wins (current
+      // limitation, no per-level path tracking).
+      const elementParseOptions: ParseOptions = {
+        ...baseParseOptions,
+        context: { ...baseParseOptions?.context, index },
+      };
       const item = (
         definition._parse as (
           value: unknown,
           parseOptions?: ParseOptions,
         ) => InternalParseOutput<unknown>
-      )(value.data[index], parseOptions as ParseOptions | undefined);
+      )(value.data[index], elementParseOptions);
 
       if (item.success) {
         acc.push(item.data as ReturnType<T['parse']>);
@@ -690,6 +810,106 @@ export function literal<T extends string | number | boolean>(
   return schema as LiteralSchemaInterface<T>;
 }
 
+/**
+ * A leaf schema that ignores its input value and instead resolves to
+ * `parseOptions.context[key]` — the parse-time equivalent of a "default from
+ * context" reference (similar in spirit to Yup's `ref('$key')`, but reads
+ * context only, never sibling fields).
+ *
+ * Never fails on its own: if `context` (or the key) is missing, it resolves
+ * to `undefined` — pair with `.pipe()`/`.default()`/`.refine()` to enforce a
+ * type or fallback.
+ *
+ * @param key - The key to read from `parseOptions.context`
+ *
+ * @example
+ * ```typescript
+ * const schema = s.object({
+ *   order: s.contextRef('index').pipe(s.number()),
+ * });
+ *
+ * schema.parse({}, { context: { index: 2 } }); // { order: 2 }
+ * ```
+ */
+export function contextRef<T = unknown>(
+  key: string,
+): SchemaInterface<unknown, T> {
+  const schema = createSchemaInterface<unknown, T>(() => true, {
+    type: 'contextRef',
+  });
+
+  schema._getDescription = () => `contextRef("${key}")`;
+
+  hookOriginal(schema, '_parse', (_originalParse, _value, parseOptions) => ({
+    success: true,
+    data: (parseOptions as ParseOptions | undefined)?.context?.[key] as T,
+  }));
+
+  return schema;
+}
+
+/**
+ * Validates/defaults `parseOptions.context` through `contextSchema` before
+ * building the real schema via `factory(context)`.
+ *
+ * Unlike `contextRef()` (which only reads a value out of context),
+ * `withContext()` lets the schema's *shape* depend on context (e.g. select a
+ * different sub-schema, or make a field required only in certain contexts),
+ * and guarantees `factory` always receives a valid, defaulted context object
+ * instead of an untyped pass-through.
+ *
+ * Returns a lean `{ parse, safeParse }` object rather than a full
+ * `SchemaInterface` — the underlying schema can differ per call (it's
+ * rebuilt from `factory(context)` every time), so it can't support the
+ * modifier methods (`optional()`, `pipe()`, etc.) a single fixed schema can.
+ *
+ * @example
+ * ```typescript
+ * const schema = s.withContext(
+ *   s.object({ index: s.number().default(0) }),
+ *   (context) => s.object({
+ *     order: s.number().default(context.index),
+ *   }),
+ * );
+ *
+ * schema.parse({}, { context: { index: 2 } }); // { order: 2 }
+ * schema.parse({});                              // { order: 0 }
+ * ```
+ */
+export function withContext<C, Output>(
+  contextSchema: SchemaInterface<unknown, C>,
+  factory: (context: C) => SchemaInterface<unknown, Output>,
+): {
+  parse(value: unknown, parseOptions?: ParseOptions): Output;
+  safeParse(
+    value: unknown,
+    parseOptions?: ParseOptions,
+  ): InternalParseOutput<Output>;
+} {
+  return {
+    parse(value, parseOptions) {
+      const context = contextSchema.parse(
+        parseOptions?.context ?? {},
+        parseOptions,
+      );
+
+      return factory(context).parse(value, parseOptions);
+    },
+    safeParse(value, parseOptions) {
+      const contextResult = contextSchema.safeParse(
+        parseOptions?.context ?? {},
+        parseOptions,
+      );
+
+      if (!contextResult.success) {
+        return contextResult as InternalParseOutput<Output>;
+      }
+
+      return factory(contextResult.data).safeParse(value, parseOptions);
+    },
+  };
+}
+
 export const cast = {
   boolean(options?: SchemaInterfaceOptions): BooleanSchemaInterface {
     const message =
@@ -838,6 +1058,8 @@ export const s = {
   preprocess,
   union,
   literal,
+  contextRef,
+  withContext,
   coerce,
   cast,
 };
@@ -1076,7 +1298,13 @@ function createSchemaInterface<Input, Output>(
     /**
      * Provides a default value for undefined inputs.
      *
-     * @param defaultValue - The default value or a function that returns the default value
+     * @param defaultValue - The default value, or a function that returns
+     * the default value. The function receives `{ context }` (from
+     * `parseOptions.context`), enabling `value ?? context ?? literal`
+     * fallback chains for a single field without a separate primitive:
+     * `s.number().default(({ context }) => context?.index ?? 0)` reads the
+     * field's context value with a literal fallback, and only runs at all
+     * when the field's own input was `undefined`.
      * @returns The schema with default value applied
      *
      * @example
@@ -1087,13 +1315,23 @@ function createSchemaInterface<Input, Output>(
      *
      * // With function
      * const timestampSchema = s.number().default(() => Date.now());
+     *
+     * // Reading from parse context, with a literal fallback
+     * const orderSchema = s.number().default(({ context }) => context?.index ?? 0);
+     * orderSchema.parse(undefined, { context: { index: 2 } }); // 2
+     * orderSchema.parse(undefined);                             // 0
+     * orderSchema.parse(5, { context: { index: 2 } });          // 5 — input wins
      * ```
      */
     default(defaultValue) {
       hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
         if (value === undefined) {
           value =
-            typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+            typeof defaultValue === 'function'
+              ? defaultValue({
+                  context: (parseOptions as ParseOptions | undefined)?.context,
+                })
+              : defaultValue;
         }
 
         return originalParse(
