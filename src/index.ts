@@ -442,7 +442,15 @@ export function object<T extends Record<string, SchemaType>>(
 
       const overrides = callback(result.data, {
         context: (parseOptions as ParseOptions | undefined)?.context,
-      }) as Record<string, unknown>;
+      });
+
+      if (!objectValidation(overrides)) {
+        const error = {
+          message: `derive() callback must return a plain object of overrides, got ${overrides === null ? 'null' : typeof overrides}`,
+        };
+
+        return { success: false, error, errors: [error] };
+      }
 
       if (when === 'missing') {
         const merged = { ...result.data } as Record<string, unknown>;
@@ -833,8 +841,8 @@ export function literal<T extends string | number | boolean>(
  */
 export function contextRef<T = unknown>(
   key: string,
-): SchemaInterface<unknown, T> {
-  const schema = createSchemaInterface<unknown, T>(() => true, {
+): SchemaInterface<unknown, T | undefined> {
+  const schema = createSchemaInterface<unknown, T | undefined>(() => true, {
     type: 'contextRef',
   });
 
@@ -842,7 +850,9 @@ export function contextRef<T = unknown>(
 
   hookOriginal(schema, '_parse', (_originalParse, _value, parseOptions) => ({
     success: true,
-    data: (parseOptions as ParseOptions | undefined)?.context?.[key] as T,
+    data: (parseOptions as ParseOptions | undefined)?.context?.[key] as
+      | T
+      | undefined,
   }));
 
   return schema;

@@ -100,6 +100,57 @@ test('object().derive() on a clone() does not affect the original schema', () =>
   assert.deepEqual(clone.parse({}, { context: { index: 5 } }), { order: 5 });
 });
 
+test('object().derive() returns a structured failure when the callback does not return a plain object', () => {
+  const schema = s
+    .object({ order: s.number().optional() })
+    .derive(() => undefined);
+
+  const result = schema.safeParse({});
+
+  assert.equal(result.success, false);
+  assert.match(result.error.message, /derive\(\) callback must return/);
+});
+
+test('object().derive() returns a structured failure when the callback returns null', () => {
+  const schema = s.object({ order: s.number().optional() }).derive(() => null);
+
+  const result = schema.safeParse({});
+
+  assert.equal(result.success, false);
+  assert.match(result.error.message, /got null/);
+});
+
+test('object().derive() returns a structured failure when the callback returns an array', () => {
+  const schema = s
+    .object({ order: s.number().optional() })
+    .derive(() => [1, 2, 3]);
+
+  const result = schema.safeParse({});
+
+  assert.equal(result.success, false);
+  assert.match(result.error.message, /derive\(\) callback must return/);
+});
+
+test('object().derive() returns a structured failure when the callback returns a primitive', () => {
+  const schema = s.object({ order: s.number().optional() }).derive(() => 42);
+
+  const result = schema.safeParse({});
+
+  assert.equal(result.success, false);
+  assert.match(result.error.message, /got number/);
+});
+
+test('object().derive() with when: "missing" still validates the callback result', () => {
+  const schema = s
+    .object({ order: s.number().optional() })
+    .derive(() => undefined, { when: 'missing' });
+
+  const result = schema.safeParse({});
+
+  assert.equal(result.success, false);
+  assert.match(result.error.message, /derive\(\) callback must return/);
+});
+
 test('object().derive() composed with .pipe() (slash-action style)', () => {
   const outputSchema = s.object({
     id: s.string(),
