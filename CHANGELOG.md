@@ -1,3 +1,8 @@
+## <small>0.9.2 (2026-08-28)</small>
+
+* ci: update pull request branch ([859635f](https://github.com/mjancarik/esmj-schema/commit/859635f))
+* feat: 🎸 make object().derive() clone-safe and polish context API ([03ae0bc](https://github.com/mjancarik/esmj-schema/commit/03ae0bc))
+* feat: 🎸 tighten contextRef() typing and derive() validation ([c455d88](https://github.com/mjancarik/esmj-schema/commit/c455d88))
 ## <small>0.9.1 (2026-08-27)</small>
 
 * feat: 🎸 add Standard Schema / Standard JSON Schema support ([e87751e](https://github.com/mjancarik/esmj-schema/commit/e87751e))
