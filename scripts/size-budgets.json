@@ -1,0 +1,10 @@
+{
+  "_comment": "Initial baseline measured 2026-10-12 against this repo's dist/ output at setup time (gzip bytes via @esmj/size), with ~15% headroom. Not a historical or cross-project number. Adjust only via an approved change (see agents/DECISIONS.md).",
+  "index": 3000,
+  "full": 4000,
+  "string": 3500,
+  "number": 3400,
+  "array": 3400,
+  "coerce": 3100,
+  "standard": 4700
+}

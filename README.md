@@ -111,11 +111,11 @@ const result = schema.parse({
 
 ### Performance Highlights
 
-- **Schema Creation**: Create schemas at up to 4,370,618 ops/s (0.23 μs latency) with @sinclair/typebox, or 736,810 ops/s (1.36 μs latency) with @esmj/schema. Superstruct is also competitive for schema creation performance.
-- **Parsing**: Parse data at up to **33,620,146 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **4,627,714 ops/s** (**0.22 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,142,587 ops/s** (**0.32 μs**), with ArkType and effect/Schema also performing strongly.
-- **Error Handling**: Handle validation errors at up to **19,693,821 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,428,049 ops/s** (**0.41 μs**) with a developer-friendly API.
+- **Schema Creation**: Create schemas at up to 3,791,982 ops/s (0.26 μs latency) with @sinclair/typebox, or 632,631 ops/s (1.59 μs latency) with @esmj/schema. Superstruct is also competitive for schema creation performance.
+- **Parsing**: Parse data at up to **33,484,851 ops/s** (**0.03 μs** latency) with **AJV** (best result in this benchmark). For comparison, `@zod/mini` reached **8,652,662 ops/s** (**0.12 μs**, observed at 200% CPU), and `@esmj/schema` reached **3,035,418 ops/s** (**0.33 μs**), with ArkType and effect/Schema also performing strongly.
+- **Error Handling**: Handle validation errors at up to **19,243,253 ops/s** (**0.05 μs** latency) with **AJV** (best result in this benchmark), while `@esmj/schema` delivered **2,274,835 ops/s** (**0.44 μs**) with a developer-friendly API.
 
-Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.3 KB` core, see the bundle size comparison below).
+Across the benchmark tables, `@esmj/schema` shows strong all-around results: fast schema creation, very competitive parsing and error-handling throughput, and a very small bundle size (`~2.5 KB` core, see the bundle size comparison below).
 
 For most TypeScript applications, it offers a practical balance of performance, size, and developer ergonomics. If absolute peak throughput in a single category is the only goal, some specialized options (for example, AJV or TypeBox in specific tests) can be faster.
 
@@ -125,7 +125,7 @@ When choosing a schema validation library, bundle size can be an important facto
 
 | Library           | Bundle Size (minified + gzipped) |
 |-------------------|---------------------------------|
-| `@esmj/schema`    | `~2.3 KB`                       |
+| `@esmj/schema`    | `~2.5 KB`                       |
 | Superstruct       | ~3.2 KB                         |
 | @sinclair/typebox | ~11.7 KB                        |
 | Yup               | ~12.2 KB                        |
@@ -140,55 +140,55 @@ When choosing a schema validation library, bundle size can be an important facto
 
 ### Performance Comparison
 
-*All benchmarks were measured on Node.js v24.1.0.*
+*Results from the supplied benchmark run. Latency is reported in microseconds (μs).*
 
 #### Schema Creation Performance
 
 | Library           | Throughput average (ops/s)      | Latency average (μs)      |
 |-------------------|-------------------------------:|-------------------------:|
-| @esmj/schema      | 736 810.12 ± 3.03%            | 1.36 ± 3.24%            |
-| Zod@3             | 112 575.50 ± 0.86%            | 8.88 ± 0.87%            |
-| @zod/mini         | 23 456.07 ± 1.26%             | 42.64 ± 1.28%           |
-| Yup               | 75 051.06 ± 4.38%             | 13.36 ± 4.41%           |
-| Superstruct       | 509 401.06 ± 0.80%            | 1.96 ± 0.80%            |
-| Joi               | 42 455.28 ± 1.27%             | 23.56 ± 1.30%           |
-| `@sinclair/typebox` | `4 370 618.49 ± 1.23%`      | `0.23 ± 1.23%`          |
-| ArkType           | 16 282.69 ± 4.14%             | 61.61 ± 4.38%           |
-| effect/Schema     | 24 919.15 ± 4.31%             | 40.31 ± 4.78%           |
-| Valibot           | 288 143.23 ± 1.93%            | 3.47 ± 2.00%            |
-| AJV               | 240.32 ± 4.67%                | 4 164.31 ± 2.04%        |
+| @esmj/schema      | 632 630.52 ± 3.89%            | 1.59 ± 4.33%            |
+| zod@3             | 112 860.81 ± 1.83%            | 8.87 ± 1.89%            |
+| @zod/mini         | 37 077.52 ± 6.45%             | 27.12 ± 6.88%           |
+| Yup               | 76 740.28 ± 1.11%             | 13.03 ± 1.10%           |
+| Superstruct       | 512 913.55 ± 7.14%            | 1.96 ± 7.74%            |
+| Joi               | 43 434.70 ± 1.87%             | 23.03 ± 1.88%           |
+| `@sinclair/typebox` | `3 791 981.60 ± 2.23%`      | `0.26 ± 2.34%`          |
+| ArkType           | 15 775.95 ± 2.55%             | 63.44 ± 2.56%           |
+| effect/Schema     | 26 367.73 ± 3.71%             | 38.06 ± 4.15%           |
+| Valibot           | 291 908.32 ± 1.43%            | 3.43 ± 1.44%            |
+| AJV               | 240.17 ± 3.99%                | 4 177.14 ± 4.33%        |
 
 #### Parsing Performance
 
 | Library           | Throughput average (ops/s)      | Latency average (μs)      |
 |-------------------|-------------------------------:|-------------------------:|
-| @esmj/schema      | 3 142 587.31 ± 0.97%          | 0.32 ± 0.99%            |
-| zod@3             | 1 018 777.24 ± 0.64%          | 0.98 ± 0.65%            |
-| @zod/mini.        | 4 627 714.90 ± 2.23%          | 0.22 ± 2.36%            |
-| Yup               | 108 361.49 ± 0.50%            | 9.23 ± 0.51%            |
-| Superstruct       | 252 904.42 ± 2.20%            | 3.96 ± 2.44%            |
-| Joi               | 346 094.49 ± 0.65%            | 2.89 ± 0.65%            |
-| @sinclair/typebox | 228 711.62 ± 2.03%            | 4.38 ± 2.23%            |
-| ArkType           | 1 677 066.00 ± 0.58%          | 0.60 ± 0.59%            |
-| effect/Schema     | 1 060 056.14 ± 0.61%          | 0.94 ± 0.61%            |
-| Valibot           | 1 789 204.27 ± 0.49%          | 0.56 ± 0.49%            |
-| `AJV`             | `33 620 146.24 ± 1.19%`       | `0.03 ± 1.26%`          |
+| @esmj/schema      | 3 035 418.20 ± 2.55%          | 0.33 ± 2.59%            |
+| zod@3             | 1 062 756.53 ± 1.52%          | 0.94 ± 1.55%            |
+| @zod/mini         | 8 652 661.63 ± 0.86%          | 0.12 ± 0.87%            |
+| Yup               | 116 804.18 ± 1.85%            | 8.57 ± 1.90%            |
+| Superstruct       | 264 015.44 ± 1.88%            | 3.79 ± 1.98%            |
+| Joi               | 351 069.11 ± 2.03%            | 2.85 ± 2.09%            |
+| @sinclair/typebox | 240 211.34 ± 1.98%            | 4.17 ± 2.00%            |
+| ArkType           | 1 775 476.65 ± 0.74%          | 0.56 ± 0.76%            |
+| effect/Schema     | 1 182 374.23 ± 0.66%          | 0.85 ± 0.67%            |
+| Valibot           | 1 855 950.67 ± 0.55%          | 0.54 ± 0.55%            |
+| `AJV`             | `33 484 850.64 ± 2.21%`       | `0.03 ± 2.30%`          |
 
 #### Error Handling Performance
 
 | Library           | Throughput average (ops/s)      | Latency average (μs)      |
 |-------------------|-------------------------------:|-------------------------:|
-| @esmj/schema      | 2 428 049.34 ± 0.54%          | 0.41 ± 0.53%            |
-| zod@3             | 641 504.22 ± 3.67%            | 1.57 ± 4.38%            |
-| @zod/mini         | 1 386 616.61 ± 0.60%          | 0.72 ± 0.60%            |
-| Yup               | 98 904.30 ± 0.61%             | 10.11 ± 0.61%           |
-| Superstruct       | 122 782.09 ± 1.03%            | 8.15 ± 1.03%            |
-| Joi               | 271 301.11 ± 1.58%            | 3.69 ± 1.59%            |
-| @sinclair/typebox | 228 734.49 ± 0.55%            | 4.37 ± 0.56%            |
-| ArkType           | 258 685.33 ± 1.23%            | 3.87 ± 1.23%            |
-| effect/Schema     | 165 753.69 ± 0.99%            | 6.03 ± 1.00%            |
-| Valibot           | 1 401 537.68 ± 1.02%          | 0.71 ± 1.02%            |
-| `AJV`             | `19 693 821.79 ± 1.81%`       | `0.05 ± 1.83%`          |
+| @esmj/schema      | 2 274 834.86 ± 1.25%          | 0.44 ± 1.27%            |
+| zod@3             | 577 521.24 ± 9.85%            | 1.76 ± 10.48%           |
+| @zod/mini         | 1 533 675.72 ± 4.20%          | 0.65 ± 4.31%            |
+| Yup               | 107 600.50 ± 1.50%            | 9.30 ± 1.52%            |
+| Superstruct       | 126 508.66 ± 2.97%            | 7.93 ± 3.42%            |
+| Joi               | 264 908.53 ± 2.11%            | 3.78 ± 2.15%            |
+| @sinclair/typebox | 233 977.27 ± 2.11%            | 4.28 ± 2.20%            |
+| ArkType           | 240 742.85 ± 1.95%            | 4.16 ± 2.00%            |
+| effect/Schema     | 185 980.76 ± 0.70%            | 5.38 ± 0.70%            |
+| Valibot           | 1 403 920.71 ± 2.57%          | 0.71 ± 2.58%            |
+| `AJV`             | `19 243 252.62 ± 0.96%`       | `0.05 ± 0.98%`          |
 
 **Note:** During the performance tests, `@zod/mini` was observed to consume 200% CPU, while other libraries used only 100% CPU. This may affect the interpretation of the results, especially in multi-threaded environments.
 
@@ -242,12 +242,36 @@ console.log(result);
 
 ## Modular Extensions
 
+### Symbol-keyed object fields
+
+`s.object()` supports Symbol keys with the same validation, defaults and modifiers
+as string keys. Declare each Symbol in the schema and use the same Symbol to
+access the parsed value. Undeclared fields are stripped.
+
+```typescript
+import { s } from '@esmj/schema';
+
+const ROW_ID = Symbol.for('row.id');
+const rowSchema = s.object({
+  [ROW_ID]: s.string().default(() => crypto.randomUUID()),
+  text: s.string().default(''),
+});
+const row = rowSchema.parse({ [ROW_ID]: 'row-1', text: 'Hello' });
+console.log(row[ROW_ID]); // 'row-1'
+```
+
+**Keep in mind:**
+- Symbol keys must be own enumerable properties of the schema definition, as in the example above.
+- Symbol fields work in nested objects and arrays. Object spread preserves them; `JSON.stringify()` and `structuredClone()` omit them.
+- The `standard` extension validates Symbol fields, but cannot convert schemas containing them to JSON Schema. Use a separate JSON-only schema for that.
+- Object schemas capture their field definitions at construction. Create a new schema to change the fields; child schemas remain shared and mutable (see the [Mutability note](#schema-methods)).
+
 `@esmj/schema` provides modular extensions that can be imported individually or all together, allowing you to include only the validation helpers you need.
 
 ### Import Options
 
 ```typescript
-// Minimal version (core only, ~2.3 KB)
+// Minimal version (core only, ~2.5 KB)
 import { s } from '@esmj/schema';
 
 // Full version (string + number + array + coerce, ~3.0 KB)
@@ -289,7 +313,7 @@ import { functionSchema, enumSchema } from '@esmj/schema';
 
 ### Bundle Size Impact
 
-- **Core only** (`@esmj/schema`): ~2.3 KB gzipped
+- **Core only** (`@esmj/schema`): ~2.5 KB gzipped
 - **String extensions** (`@esmj/schema/string`): +~0.3 KB
 - **Number extensions** (`@esmj/schema/number`): +~0.3 KB
 - **Array extensions** (`@esmj/schema/array`): +~0.3 KB
@@ -1897,7 +1921,7 @@ const userSchema = s.object({
 |---------|-----|--------------|
 | Import | `import { z } from 'zod'` | `import { s } from '@esmj/schema'` |
 | Extensions | Built-in | Modular (`/string`, `/number`, `/array`, `/full`) |
-| Bundle size | ~13 KB | ~2.3 KB (core), ~3.0 KB (full) |
+| Bundle size | ~13 KB | ~2.5 KB (core), ~3.0 KB (full) |
 | Email validation | `.email()` built-in | Custom extension (see [Extending Schemas](#extending-schemas)) |
 | Error format | Native Error | Plain object `{ success, error, errors }` |
 | Coerce | `z.coerce.number()` | `s.coerce.number()` |

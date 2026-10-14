@@ -1,3 +1,15 @@
+## Unreleased
+
+* Object descriptions now include inherited enumerable string fields, matching
+	the fields already validated by the object schema. Parsing is unchanged.
+
+### BREAKING CHANGE
+
+* Removed the named `hookOriginal` export from all entrypoints. Use schema
+	modifiers (`preprocess`, `transform`, `refine`, etc.) and `extend` for custom
+	behavior, or implement generic method wrapping in consumer code. The internal
+	`hookParse` helper remains private and is not a public replacement.
+
 ## <small>0.9.2 (2026-08-28)</small>
 
 * ci: update pull request branch ([859635f](https://github.com/mjancarik/esmj-schema/commit/859635f))

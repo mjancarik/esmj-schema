@@ -4,7 +4,8 @@
       "src/**/*.mjs",
       "src/**/*.ts",
       "utils/**/*.mjs",
-      "benchmark/**/*.ts"
+      "benchmark/**/*.ts",
+      "scripts/agent/**/*.mjs"
     ],
     "ignore": [".history/**/*"]
   },
