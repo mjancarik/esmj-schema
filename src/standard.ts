@@ -68,11 +68,13 @@ declare module './index.ts' {
 // needs to know the name of any individual constraint method.
 // ---------------------------------------------------------------------------
 interface JsonSchemaFragment {
+  definitionType?: string;
   optional?: boolean;
   nullable?: boolean;
   hasDefault?: boolean;
   defaultValue?: unknown;
   pipeTarget?: SchemaType;
+  pipeStages?: ReadonlyArray<SchemaType>;
   unexplainedTransform?: boolean;
   outputHint?: Record<string, unknown>;
 }
@@ -148,7 +150,7 @@ function setFragment(
 
 function initStandard(schema: SchemaType): void {
   const target = schema as unknown as MutableSchema;
-  target._jsonSchemaFragment = {};
+  target._jsonSchemaFragment = { definitionType: schema._getType() };
   target['~standard'] = buildStandard(schema);
 }
 
@@ -170,61 +172,6 @@ function wrapMethod(
     setFragment(this, (fragment) => updater(fragment, args));
     return result;
   };
-}
-
-function wrapTransform(schema: SchemaType): void {
-  const target = schema as unknown as MutableSchema;
-  const original = target.transform;
-
-  if (typeof original !== 'function') return;
-
-  target.transform = function (this: SchemaType, ...args: unknown[]) {
-    const result = (original as (...a: unknown[]) => unknown).apply(this, args);
-    const options = args[1] as
-      | { jsonSchema?: Record<string, unknown> | null }
-      | undefined;
-    // Normalizes both "no options passed" and "options passed but
-    // `jsonSchema` explicitly `undefined`" (e.g. from a wrapper computing
-    // the hint dynamically) to the same "unknown shape" outcome, so neither
-    // case is silently mistaken for `{ jsonSchema: null }`'s
-    // shape-preserving meaning.
-    const hint = options?.jsonSchema;
-
-    setFragment(this, (fragment) => {
-      // Shape impact is unknown: no options, or `jsonSchema` omitted/undefined.
-      if (hint === undefined) {
-        return { ...fragment, unexplainedTransform: true };
-      }
-
-      // `{ jsonSchema: null }`: explicitly declared shape-preserving (used
-      // internally by helpers like string's `trim()`/array's `sort()`) — no
-      // change to the accumulated shape/hint.
-      if (hint === null) {
-        return fragment;
-      }
-
-      // `{ jsonSchema: {...} }`: explicit replacement for the output shape.
-      return {
-        ...fragment,
-        unexplainedTransform: false,
-        outputHint: hint,
-      };
-    });
-
-    return result;
-  };
-}
-
-// `refine()` is where `_getJsonSchemaHints()` gets (re)assigned (by core, for
-// any constraint method — built-in like min()/max() or added via a
-// third-party extend()). Wrapping this single generic method — instead of
-// every constraint method by name — refreshes `~standard` so it's bound to
-// `this` (the actual clone the hint was just recorded on) rather than
-// whatever instance `~standard` was inherited from via `clone()`'s shallow
-// copy. The updater is a no-op (the fragment itself doesn't change here);
-// only the `setFragment()` side effect of rebuilding `~standard` matters.
-function wrapRefine(schema: SchemaType): void {
-  wrapMethod(schema, 'refine', (fragment) => fragment);
 }
 
 // Generically merges the JSON Schema keyword fragments accumulated by
@@ -436,7 +383,38 @@ function buildJsonSchema(
     );
   }
 
+  // A replacement output hint or a later pipe must not silently hide a
+  // Symbol-bearing runtime definition. This traversal never runs callbacks.
+  assertJsonCompatible(schema, new Set());
   return { $schema: schemaUri, ...convert(schema, options, mode) };
+}
+
+function assertJsonCompatible(schema: SchemaType, seen: Set<SchemaType>): void {
+  if (seen.has(schema)) return;
+  seen.add(schema);
+  const type = getFragment(schema).definitionType ?? schema._getType();
+  const definition = schema._getDefinition?.();
+
+  if (type === 'object') {
+    const fields = definition as Record<PropertyKey, SchemaType>;
+    for (const key of Object.getOwnPropertySymbols(fields)) {
+      if (Object.prototype.propertyIsEnumerable.call(fields, key)) {
+        throw new Error(
+          'Cannot convert Symbol-keyed object fields to JSON Schema.',
+        );
+      }
+    }
+    for (const key in fields) assertJsonCompatible(fields[key], seen);
+  } else if (type === 'array') {
+    assertJsonCompatible(definition as SchemaType, seen);
+  } else if (type === 'union') {
+    for (const branch of definition as SchemaType[])
+      assertJsonCompatible(branch, seen);
+  }
+
+  for (const stage of getFragment(schema).pipeStages ?? []) {
+    assertJsonCompatible(stage, seen);
+  }
 }
 
 extend((schema: SchemaType) => {
@@ -465,9 +443,38 @@ extend((schema: SchemaType) => {
   wrapMethod(schema, 'pipe', (fragment, args) => ({
     ...fragment,
     pipeTarget: args[0] as SchemaType,
+    pipeStages: [...(fragment.pipeStages ?? []), args[0] as SchemaType],
   }));
-  wrapTransform(schema);
-  wrapRefine(schema);
+  wrapMethod(schema, 'transform', (fragment, args) => {
+    const options = args[1] as
+      | { jsonSchema?: Record<string, unknown> | null }
+      | undefined;
+    const hint = options?.jsonSchema;
+
+    // Missing/undefined means unknown output; null preserves the current shape.
+    if (hint === undefined) {
+      return { ...fragment, unexplainedTransform: true };
+    }
+    if (hint === null) {
+      return fragment;
+    }
+
+    // An object hint explicitly replaces the output shape.
+    return { ...fragment, unexplainedTransform: false, outputHint: hint };
+  });
+  // Core refine records hints; refresh Standard's binding to the actual clone.
+  wrapMethod(schema, 'refine', (fragment) => fragment);
+
+  // object() assigns derive after extenders run. Wrap clone instead so a
+  // derived object clone validates through its own parser, not its source.
+  const originalClone = schema.clone;
+  schema.clone = function () {
+    const clone = originalClone.call(this);
+    (clone as unknown as MutableSchema)['~standard'] = buildStandard(
+      clone as SchemaType,
+    );
+    return clone;
+  };
 
   return schema;
 });

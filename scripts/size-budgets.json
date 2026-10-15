@@ -1,0 +1,10 @@
+{
+  "_comment": "Baseline measured 2026-10-15 against this repo's freshly built dist/ output (gzip bytes via @esmj/size). Each budget is ceil(measured bytes * 1.03), allowing 3% headroom rounded up to a whole byte. Not a historical or cross-project number. Adjust only via an approved change (see agents/DECISIONS.md).",
+  "index": 2716,
+  "full": 3646,
+  "string": 3167,
+  "number": 3048,
+  "array": 3059,
+  "coerce": 2791,
+  "standard": 4192
+}

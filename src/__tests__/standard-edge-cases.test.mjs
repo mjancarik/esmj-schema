@@ -452,6 +452,34 @@ describe('Standard Schema / Standard JSON Schema', () => {
   });
 
   describe('clone() divergence', () => {
+    it('transform hints and validation remain bound to the modified clone', () => {
+      const base = s.string();
+      const clone = base.clone();
+      assert.strictEqual(
+        clone.transform((value) => value.length, {
+          jsonSchema: { type: 'number' },
+        }),
+        clone,
+      );
+      clone.transform((value) => value + 1, { jsonSchema: null });
+      assert.deepStrictEqual(clone['~standard'].validate('abc'), { value: 4 });
+      assert.deepStrictEqual(base['~standard'].validate('abc'), {
+        value: 'abc',
+      });
+      assert.strictEqual(
+        clone['~standard'].jsonSchema.input(draft07).type,
+        'string',
+      );
+      assert.strictEqual(
+        clone['~standard'].jsonSchema.output(draft07).type,
+        'number',
+      );
+      assert.strictEqual(
+        base['~standard'].jsonSchema.output(draft07).type,
+        'string',
+      );
+    });
+
     it('independent .min()/.max() calls on separate clones do not leak into each other', () => {
       const base = s.string();
       const a = base.clone().min(3);

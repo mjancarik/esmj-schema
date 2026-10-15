@@ -155,8 +155,9 @@ export interface ArraySchemaInterface<T extends SchemaType>
   > {}
 // biome-ignore lint/suspicious/noEmptyInterface: extended by coerce module
 export interface CoerceInterface {}
-export interface ObjectSchemaInterface<T extends Record<string, SchemaType>>
-  extends SchemaInterface<
+export interface ObjectSchemaInterface<
+  T extends Record<PropertyKey, SchemaType>,
+> extends SchemaInterface<
     { [Property in keyof T]: ReturnType<T[Property]['parse']> },
     { [Property in keyof T]: ReturnType<T[Property]['parse']> }
   > {
@@ -211,7 +212,7 @@ export type SchemaType =
   | SchemaInterface<string, string | undefined>
   | SchemaInterface<string, string | null>
   | SchemaInterface<string, string | undefined | null>
-  | ObjectSchemaInterface<Record<string, SchemaType>>
+  | ObjectSchemaInterface<Record<PropertyKey, SchemaType>>
   | SchemaInterface<object, object>
   | SchemaInterface<object, object | undefined>
   | SchemaInterface<object, object | null>
@@ -239,7 +240,7 @@ export type SchemaType =
   //| ArraySchemaInterface<SchemaType>
   | ArraySchemaInterface<
       | StringSchemaInterface
-      | ObjectSchemaInterface<Record<string, SchemaType>>
+      | ObjectSchemaInterface<Record<PropertyKey, SchemaType>>
       | NumberSchemaInterface
       | BooleanSchemaInterface
       | DateSchemaInterface
@@ -288,13 +289,13 @@ const defaultParseOptions: ParseOptions = {
 
 function formatError(
   error: ErrorStructure,
-  parentKey?: string | number,
+  parentKey?: PropertyKey,
 ): ErrorStructure {
   if (parentKey === undefined) return error;
 
   const errorKey = error?.cause?.key
-    ? `${parentKey}.${error.cause.key}`
-    : `${parentKey}`;
+    ? `${String(parentKey)}.${error.cause.key}`
+    : String(parentKey);
 
   return {
     message: `Error parsing key "${errorKey}": ${error.message}`,
@@ -305,7 +306,7 @@ function formatError(
 function propagateNestedErrors(
   item: Invalid,
   errors: ErrorStructure[],
-  key: string | number,
+  key: PropertyKey,
 ): void {
   if (!item.errors?.length) return;
 
@@ -320,7 +321,7 @@ function propagateNestedErrors(
 // continues iterating.
 function handleItemFailure(
   item: Invalid,
-  key: string | number,
+  key: PropertyKey,
   abortEarly: boolean | undefined,
   errors: ErrorStructure[],
 ): Invalid | undefined {
@@ -350,7 +351,7 @@ function applyNullishModifier<Output>(
   schema: SchemaInterface<unknown, Output>,
   predicate: (value: unknown) => boolean,
 ): void {
-  hookOriginal(schema, '_parse', (originalParse, value, parseOptions) => {
+  hookParse(schema, (originalParse, value, parseOptions) => {
     const item = originalParse(value, parseOptions);
 
     if (!item.success && predicate(value)) {
@@ -388,12 +389,27 @@ const arrayValidation = (value: unknown): value is unknown[] =>
 const objectValidation = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export function object<T extends Record<string, SchemaType>>(
+export function object<T extends Record<PropertyKey, SchemaType>>(
   definition: {
     [Property in keyof T]: T[Property];
   },
   options?: SchemaInterfaceOptions,
 ): ObjectSchemaInterface<T> {
+  // Capture membership and schema references, not parsers: child modifiers stay live.
+  const keys: PropertyKey[] = [];
+  const fields: SchemaType[] = [];
+  for (const key in definition) {
+    keys.push(key);
+    fields.push(definition[key]);
+  }
+  const symbols = Object.getOwnPropertySymbols(definition);
+  for (let index = 0; index < symbols.length; index++) {
+    const key = symbols[index];
+    if (Object.prototype.propertyIsEnumerable.call(definition, key)) {
+      keys.push(key);
+      fields.push(definition[key]);
+    }
+  }
   const schema = createSchemaInterface<
     { [Property in keyof T]: ReturnType<T[Property]['parse']> },
     { [Property in keyof T]: ReturnType<T[Property]['parse']> }
@@ -404,23 +420,32 @@ export function object<T extends Record<string, SchemaType>>(
 
   // Add a more detailed description for object schemas
   schema._getDescription = () => {
-    const fieldDescriptions = Object.entries(definition)
-      .map(
-        ([key, schema]) =>
-          `${key}: ${(schema as SchemaInterface<unknown, unknown>)._getDescription()}`,
-      )
-      .join(', ');
-    return `object({ ${fieldDescriptions} })`;
+    const descriptions: string[] = [];
+    for (let index = 0; index < keys.length; index++) {
+      descriptions.push(
+        `${String(keys[index])}: ${fields[index]._getDescription()}`,
+      );
+    }
+    return `object({ ${descriptions.join(', ')} })`;
   };
 
-  // Exposes the field schema map (used by e.g. the standard.ts extender).
-  schema._getDefinition = () => definition;
+  // Lazy, shallow introspection snapshot; never expose or freeze the caller's map.
+  let snapshot: Readonly<Record<PropertyKey, SchemaType>> | undefined;
+  schema._getDefinition = () => {
+    if (snapshot) return snapshot;
+    const map = Object.create(null) as Record<PropertyKey, SchemaType>;
+    for (let index = 0; index < keys.length; index++) {
+      map[keys[index]] = fields[index];
+    }
+    snapshot = Object.freeze(map);
+    return snapshot;
+  };
 
   const objectSchema = schema as unknown as ObjectSchemaInterface<T>;
 
   // Derives cross-field computed values from the already-parsed row and/or
   // `parseOptions.context`. Hooked in AFTER the field-loop's own
-  // hookOriginal below is set up, so the callback (invoked lazily, once the
+  // parser below is set up, so the callback (invoked lazily, once the
   // caller calls `.derive(...)`) wraps the field-loop's `_parse` and
   // therefore always receives the already-parsed row, not the raw input.
   //
@@ -428,10 +453,10 @@ export function object<T extends Record<string, SchemaType>>(
   // whichever instance the method is actually called on — including a
   // `.clone()` — instead of always closing over the original `objectSchema`
   // captured here. This matches every other modifier (optional/default/
-  // transform/etc.), which all use `hookOriginal(this, ...)` for the same
+  // transform/etc.), which all wrap `_parse` on `this` for the same
   // clone-safety reason.
   objectSchema.derive = function (callback, { when = 'always' } = {}) {
-    hookOriginal(this, '_parse', (originalParse, data, parseOptions) => {
+    hookParse(this, (originalParse, data, parseOptions) => {
       const result = originalParse(data, parseOptions) as InternalParseOutput<{
         [Property in keyof T]: ReturnType<T[Property]['parse']>;
       }>;
@@ -453,10 +478,21 @@ export function object<T extends Record<string, SchemaType>>(
       }
 
       if (when === 'missing') {
-        const merged = { ...result.data } as Record<string, unknown>;
+        const merged = { ...result.data } as Record<PropertyKey, unknown>;
 
         for (const key in overrides) {
           if (merged[key] === undefined) {
+            merged[key] = overrides[key];
+          }
+        }
+
+        const symbols = Object.getOwnPropertySymbols(overrides);
+        for (let index = 0; index < symbols.length; index++) {
+          const key = symbols[index];
+          if (
+            Object.prototype.propertyIsEnumerable.call(overrides, key) &&
+            merged[key] === undefined
+          ) {
             merged[key] = overrides[key];
           }
         }
@@ -477,7 +513,8 @@ export function object<T extends Record<string, SchemaType>>(
     return this;
   };
 
-  hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+  const originalParse = schema._parse;
+  schema._parse = (data, parseOptions) => {
     const value = originalParse(data, parseOptions);
     const { abortEarly } = resolveParseOptions(
       parseOptions as ParseOptions | undefined,
@@ -487,14 +524,13 @@ export function object<T extends Record<string, SchemaType>>(
       return value;
     }
 
-    const acc = {} as Record<string, unknown>;
-    const errors: ErrorStructure[] = [];
+    const acc = {} as Record<PropertyKey, unknown>;
+    let errors: ErrorStructure[] | undefined;
 
-    // Note: Using for...in is actually faster than Object.keys() in V8
-    // despite common belief. Benchmarks show 15% better performance.
-    for (const key in definition) {
+    for (let index = 0; index < keys.length; index++) {
+      const key = keys[index];
       const item = (
-        definition[key]._parse as (
+        fields[index]._parse as (
           value: unknown,
           parseOptions?: ParseOptions,
         ) => InternalParseOutput<unknown>
@@ -503,6 +539,7 @@ export function object<T extends Record<string, SchemaType>>(
       if (item.success) {
         acc[key] = item.data;
       } else {
+        errors ??= [];
         const failure = handleItemFailure(
           item as Invalid,
           key,
@@ -516,7 +553,7 @@ export function object<T extends Record<string, SchemaType>>(
       }
     }
 
-    if (errors.length > 0) {
+    if (errors?.length) {
       return {
         success: false,
         error: errors[0], // First error as the main error
@@ -530,7 +567,7 @@ export function object<T extends Record<string, SchemaType>>(
         [Property in keyof T]: ReturnType<T[Property]['parse']>;
       },
     };
-  });
+  };
 
   return objectSchema;
 }
@@ -627,7 +664,7 @@ export function array<T extends SchemaType>(
   // Exposes the item schema (used by e.g. the standard.ts extender).
   schema._getDefinition = () => definition;
 
-  hookOriginal(schema, '_parse', (originalParse, data, parseOptions) => {
+  hookParse(schema, (originalParse, data, parseOptions) => {
     const value = originalParse(data, parseOptions);
     const { abortEarly } = resolveParseOptions(
       parseOptions as ParseOptions | undefined,
@@ -702,7 +739,7 @@ export function preprocess<T extends SchemaType>(
   callback: Function,
   schema: T,
 ): T {
-  hookOriginal(schema, '_parse', (originalParse, value, parseOptions) => {
+  hookParse(schema, (originalParse, value, parseOptions) => {
     value = callback(value);
 
     return originalParse(value, parseOptions);
@@ -734,7 +771,7 @@ export function union<T extends Array<SchemaType>>(
   // Exposes the branch schemas (used by e.g. the standard.ts extender).
   schema._getDefinition = () => definitions;
 
-  hookOriginal(schema, '_parse', (_originalParse, data, parseOptions) => {
+  schema._parse = (data, parseOptions) => {
     const resolvedOptions = parseOptions as ParseOptions | undefined;
     const branchResults: Invalid[] = [];
 
@@ -786,7 +823,7 @@ export function union<T extends Array<SchemaType>>(
     }
 
     return { success: false, error: errors[0], errors };
-  });
+  };
 
   return schema as UnionSchemaInterface<T>;
 }
@@ -848,12 +885,12 @@ export function contextRef<T = unknown>(
 
   schema._getDescription = () => `contextRef("${key}")`;
 
-  hookOriginal(schema, '_parse', (_originalParse, _value, parseOptions) => ({
+  schema._parse = (_value, parseOptions) => ({
     success: true,
     data: (parseOptions as ParseOptions | undefined)?.context?.[key] as
       | T
       | undefined,
-  }));
+  });
 
   return schema;
 }
@@ -1032,9 +1069,8 @@ export const cast = {
     const message =
       options?.message ??
       ((value: unknown) => `Cannot parse "${value}" as JSON.`);
-    hookOriginal(
+    hookParse(
       schema,
-      '_parse',
       (originalParse: Function, value: unknown, parseOptions) => {
         if (stringValidation(value)) {
           try {
@@ -1076,23 +1112,21 @@ export const s = {
 
 function errorMessageFactory(type: string): (value: unknown) => string {
   return (value: unknown) =>
-    `The value "${value}" must be type of ${type} but is type of "${typeof value}".`;
+    `The value "${String(value)}" must be type of ${type} but is type of "${typeof value}".`;
 }
 
-export function hookOriginal<Input, Output>(
+// Built-in parsing forwards only the value and parse options.
+function hookParse<Input, Output>(
   object: SchemaInterface<Input, Output> | SchemaType,
-  method: keyof (SchemaInterface<Input, Output> | SchemaType),
   action: (
     original: Function,
-    ...args: unknown[]
+    value: unknown,
+    options?: ParseOptions,
   ) => InternalParseOutput<Output>,
 ) {
-  const original = object[method] as Function;
-
-  // @ts-expect-error - Dynamic method replacement
-  object[method] = (...args: unknown[]) => {
-    return action(original, ...args);
-  };
+  const original = object._parse;
+  object._parse = (value: unknown, options?: ParseOptions) =>
+    action(original, value, options);
 }
 
 function createSchemaInterface<Input, Output>(
@@ -1231,7 +1265,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     transform(callback) {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+      hookParse(this, (originalParse, value, parseOptions) => {
         const item = originalParse(value, parseOptions);
 
         if (!item.success) {
@@ -1334,7 +1368,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     default(defaultValue) {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+      hookParse(this, (originalParse, value, parseOptions) => {
         if (value === undefined) {
           value =
             typeof defaultValue === 'function'
@@ -1374,7 +1408,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     catch(catchValue) {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+      hookParse(this, (originalParse, value, parseOptions) => {
         const item = originalParse(value, parseOptions);
 
         if (!item.success) {
@@ -1415,7 +1449,7 @@ function createSchemaInterface<Input, Output>(
      * ```
      */
     pipe(schema) {
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+      hookParse(this, (originalParse, value, parseOptions) => {
         const item = originalParse(value, parseOptions);
         if (!item.success) {
           return item;
@@ -1462,7 +1496,7 @@ function createSchemaInterface<Input, Output>(
       }
 
       if (jsonSchema) {
-        // Reassigned as an own property on `this` (like hookOriginal does
+        // Reassigned as an own property on `this` (like hookParse does
         // for `_parse`) rather than captured in a closure variable, so a
         // clone that diverges from its original (`base.clone().min(3)`)
         // never leaks hints into — or receives them from — its sibling.
@@ -1470,7 +1504,7 @@ function createSchemaInterface<Input, Output>(
         this._getJsonSchemaHints = () => hints;
       }
 
-      hookOriginal(this, '_parse', (originalParse, value, parseOptions) => {
+      hookParse(this, (originalParse, value, parseOptions) => {
         const parsedValue = originalParse(value, parseOptions);
         const { abortEarly } = resolveParseOptions(
           parseOptions as ParseOptions | undefined,
