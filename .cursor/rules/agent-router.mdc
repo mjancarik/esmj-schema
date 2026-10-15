@@ -7,6 +7,6 @@ Read [AGENTS.md](../../AGENTS.md) at the repository root, then
 [agents/README.md](../../agents/README.md).
 
 Load the relevant canonical skill under `.agents/skills/<name>/SKILL.md` using
-that router (`repo-verify`, `repo-bugfix`, `repo-refactor`).
+that router (`repo-verify`, `repo-bugfix`, `repo-refactor`, `repo-commit`).
 
 This adapter introduces no independent policy.

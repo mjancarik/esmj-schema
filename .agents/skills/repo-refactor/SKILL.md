@@ -17,6 +17,6 @@ description: "Use when changing or deduplicating a shared API/type in this repos
    (single-maintainer repo — see WORKFLOW.md).
 5. Migrate the implementation, every caller, types, tests, and docs together
    in one change — not split across unrelated commits.
-6. Run the full gate: `npm run agent:verify`.
+6. Run the complete final gate: `npm run agent:verify:all`.
 7. Update the owning guide in `agents/` if the refactor changes a documented
    convention or command.

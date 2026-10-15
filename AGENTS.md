@@ -5,6 +5,10 @@ Read [agents/README.md](agents/README.md) and only the guides relevant to the ta
 - Use the `agent:*` npm scripts documented in [agents/TESTING.md](agents/TESTING.md) for checks.
 	Start with `npm run agent:doctor`; a quick pass is never the final gate — see
 	[agents/WORKFLOW.md](agents/WORKFLOW.md).
+- Run `agent:*` checks directly, without `awk`/`tail` pipelines, shell
+	exit-code bookkeeping, or ad hoc duplicate checks/measurement scripts.
+	If output or coverage is insufficient, propose extending the owning script.
+	Use `npm run agent:verify:all` for complete final verification.
 - Preserve existing work, in-progress diffs and test assertions. Never run a
 	blanket `git reset`/`stash`/cleanup.
 - Search existing helpers, callers and types before adding or changing shared

@@ -21,5 +21,5 @@ description: "Use when fixing a bug, regression, or failing test in this reposit
 6. Make the narrowest correction that fixes the root cause. Do not refactor
    unrelated code in the same change.
 7. Confirm the same regression test goes green, then run the full gate:
-   `npm run agent:verify`.
+   `npm run agent:verify:all`.
 8. Report the retained test name, root cause, and full verification evidence.

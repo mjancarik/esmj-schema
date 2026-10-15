@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agent:verify:quick — fast iteration checks only. Explicitly NOT the final
-// gate; use agent:verify for that.
+// gate; use agent:verify:all for complete final verification.
 
 import { runGate } from './lib/run.mjs';
 
@@ -11,7 +11,7 @@ const code = runGate([
 
 if (code === 0) {
   console.log(
-    '\nagent:verify:quick passed — this is NOT the final gate. Run agent:verify before reporting done.',
+    '\nagent:verify:quick passed — this is NOT the final gate. Run agent:verify:all before reporting done.',
   );
 }
 

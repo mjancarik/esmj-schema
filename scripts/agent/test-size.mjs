@@ -11,9 +11,10 @@ import { evaluateBudgets } from './lib/size.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
 const distDir = join(repoRoot, 'dist');
+const outputBytes = process.argv.includes('--bytes');
 
-function formatKilobytes(bytes) {
-  return `${(bytes / 1024).toFixed(2)} kB`;
+function formatSize(bytes) {
+  return outputBytes ? `${bytes} bytes` : `${(bytes / 1024).toFixed(2)} kB`;
 }
 
 if (!existsSync(distDir)) {
@@ -66,15 +67,15 @@ const { results, failed } = evaluateBudgets(measurements, budgets);
 for (const r of results) {
   if (r.status === 'informational') {
     console.log(
-      `\u26A0 ${r.entry}: ${formatKilobytes(r.size)} gzip (no budget set — informational only)`,
+      `\u26A0 ${r.entry}: ${formatSize(r.size)} gzip (no budget set — informational only)`,
     );
   } else if (r.status === 'fail') {
     console.error(
-      `\u2716 ${r.entry}: ${formatKilobytes(r.size)} gzip exceeds budget of ${formatKilobytes(r.budget)}`,
+      `\u2716 ${r.entry}: ${formatSize(r.size)} gzip exceeds budget of ${formatSize(r.budget)}`,
     );
   } else {
     console.log(
-      `\u2713 ${r.entry}: ${formatKilobytes(r.size)} gzip (budget ${formatKilobytes(r.budget)})`,
+      `\u2713 ${r.entry}: ${formatSize(r.size)} gzip (budget ${formatSize(r.budget)})`,
     );
   }
 }

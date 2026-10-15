@@ -29,7 +29,7 @@ Before adding or changing shared behavior:
 3. Identify the owning file (core `index.ts` vs. a type-specific extender vs.
    `standard.ts`) before changing anything.
 4. Fix narrowly; do not refactor unrelated code in the same change.
-5. Confirm the same test goes green; run the full `agent:verify` gate.
+5. Confirm the same test goes green; run the complete `agent:verify:all` gate.
 
 ## Refactor flow
 
@@ -39,12 +39,18 @@ Before adding or changing shared behavior:
 3. Get scoped approval for anything that changes public behavior.
 4. Migrate implementation, callers, types, tests, and docs together in one
    change — not split across unrelated commits.
-5. Run `agent:verify`.
+5. Run `agent:verify:all`.
 
 ## Verification discipline
 
 - A quick pass (`agent:verify:quick`) is never reported as the final gate.
-- `agent:verify` stops at the first failing step; report later steps as
+- Use `agent:verify:all` for complete final verification (preflight, guidance,
+   the CI-parity gate, tooling and whitespace). Keep `agent:verify` available
+   separately for its existing CI-parity scope.
+- Run checks directly through predefined `agent:*` commands, without shell
+   output filters, manual exit-code bookkeeping or ad hoc duplicate check scripts.
+   Propose an extension to an existing command when its interface is insufficient.
+- Composed gates stop at the first failing step; report later steps as
   NOT RUN, never as passed.
 - Never weaken a test, raise a budget, or add a retry just to get green —
   that's a reported defect/regression, not a fix.
@@ -58,6 +64,9 @@ Before adding or changing shared behavior:
 
 ## Red lines
 
+- Commit only on an explicit user request or direct invocation of
+   [repo-commit](../.agents/skills/repo-commit/SKILL.md); follow its scope,
+   verification and current-branch safeguards. Preparing a skill is not invoking it.
 - No blanket `git reset --hard` / `git stash` / cleanup of files you didn't
   create.
 - No global tool installs, no editing personal/editor settings.

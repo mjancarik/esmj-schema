@@ -52,9 +52,12 @@ export function runStep(name, command, args, options) {
  * silently skipping them.
  */
 export function runGate(steps) {
+  const results = steps.map((step) => ({ name: step.name, code: null }));
+  let exitCode = 0;
   for (let i = 0; i < steps.length; i += 1) {
     const step = steps[i];
     const code = runStep(step.name, step.command, step.args, step.options);
+    results[i].code = code;
     if (code !== 0) {
       const notRun = steps.slice(i + 1).map((s) => s.name);
       if (notRun.length > 0) {
@@ -62,8 +65,15 @@ export function runGate(steps) {
           `\nNOT RUN (stopped by "${step.name}" failure): ${notRun.join(', ')}`,
         );
       }
-      return code;
+      exitCode = code;
+      break;
     }
   }
-  return 0;
+  console.log('\nGate summary:');
+  for (const { name, code } of results) {
+    const status = code === null ? 'NOT RUN' : code === 0 ? 'PASS' : 'FAIL';
+    console.log(`${status} ${name} (exit ${code === null ? 'N/A' : code})`);
+  }
+  console.log(`Gate exit code: ${exitCode}`);
+  return exitCode;
 }

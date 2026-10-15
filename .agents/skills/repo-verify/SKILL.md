@@ -11,13 +11,16 @@ description: "Use when testing, checking lint/types/builds, diagnosing verificat
 4. Select appropriate checks via the documented `agent:*` interface:
    - Fast iteration: `npm run agent:verify:quick` (lint + types only — **never
      the final gate**).
-   - Full required gate: `npm run agent:verify` (test → types → lint → build →
-     size, mirrors CI's job order).
+    - Complete final gate: `npm run agent:verify:all` (doctor → guidance →
+       `agent:verify` → tooling → staged/unstaged whitespace).
+    - CI-parity gate for iteration: `npm run agent:verify` (test → types →
+       lint → build → size, mirrors CI's job order).
    - Focused tests: `npm run agent:test:unit -- <file-or-dir>` or
      `-- --test-name-pattern "<pattern>"`.
-5. Respect task scope: a focused/quick pass only supports iteration; reporting
-   a change as "done" requires the full `agent:verify` gate to have actually
-   run and passed.
+5. Run these predefined commands directly, without shell output filters,
+   exit-code bookkeeping or ad hoc duplicate check/measurement scripts. Propose
+   extending the owning command if needed. A focused/quick pass only supports
+   iteration; reporting "done" requires `agent:verify:all` to have run and passed.
 6. Report exact commands run, pass/fail counts, exit codes, and any step that
    did NOT run (e.g. a gate stopped early) — never imply a step passed if it
    wasn't executed.

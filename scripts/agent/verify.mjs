@@ -6,7 +6,7 @@
 import { runGate } from './lib/run.mjs';
 
 const code = runGate([
-  { name: 'test:unit', command: 'npm', args: ['run', 'test:unit'] },
+  { name: 'test:unit', command: 'npm', args: ['run', 'agent:test:unit'] },
   { name: 'types', command: 'npm', args: ['run', 'typecheck'] },
   { name: 'lint', command: 'npm', args: ['run', 'lint'] },
   { name: 'build', command: 'npm', args: ['run', 'build'] },

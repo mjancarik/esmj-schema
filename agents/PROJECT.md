@@ -58,10 +58,9 @@
   comparison libraries like zod/yup/valibot used only in docs/benchmarks, never
   imported by `src/`). Do not add a runtime dependency without separate approval.
 
-## Known in-flight work (do not treat as settled contract)
+## Symbol-field history
 
-As of this setup, the working tree has an uncommitted, in-progress
-symbol-keyed-fields feature (modified `src/index.ts`, `src/standard.ts`,
-`README.md`, `package.json`; new `docs/`, `benchmark/symbols.ts`, and
-`src/__tests__/object-symbols*`). This setup does not touch or depend on that
-diff; see [DECISIONS.md](DECISIONS.md) for how this was handled during setup.
+See the [archived design summary](archive/symbol-keyed-fields-design.md) and
+[verification summary](archive/symbol-keyed-fields-verification.md) for rationale
+and historical evidence, not current working-tree status. Public behavior belongs
+in [the package README](../README.md#symbol-keyed-object-fields).

@@ -20,11 +20,6 @@
   cross-project number) — see that file's header comment-equivalent note in
   `TESTING.md`. Expect this file to need adjustment as the in-flight
   symbol-keyed-fields feature lands.
-- Left the uncommitted in-progress symbol-keyed-fields diff (`src/index.ts`,
-  `src/standard.ts`, `README.md`, `package.json`, `docs/`, `benchmark/symbols.ts`,
-  new `src/__tests__/object-symbols*` files) completely untouched. This setup
-  only adds new files; it did not revert, stash, or inspect those changes
-  beyond what `git status` already shows.
 - Node minimum for `agent:doctor` set to 22 (required for
   `--experimental-strip-types`, which the existing `npm test` script already
   depends on), recommended 24 to match CI — not a new constraint, just making
@@ -40,29 +35,35 @@
   comparing results or investigating a failure. When needed, use repository-root
   `tmp/`, not system `/tmp/`, and do not commit their contents.
 
-## 2026-10-14 — Single-pass Symbol capture
+## 2026-10-15 — Tighten size-budget headroom to 3%
 
-- Owner rejected supporting definition getters that mutate the definition during
-  construction. Capture each enumerable Symbol key and schema together in one
-  indexed loop; do not add a separate membership pass for getter side effects.
-- Removed the hide/expose getter-membership test for that explicitly unsupported
-  scenario. Ordinary getter evaluation, post-construction snapshots, inherited
-  strings and live child schemas remain unchanged.
+- Owner requested 3% headroom instead of the initial approximately 15% policy.
+- Remeasured freshly built published entry points with `@esmj/size` and set
+  each fixed budget to `Math.ceil(measuredBytes * 1.03)`.
+- Baseline gzip bytes: index 2636, full 3539, string 3074, number 2959,
+  array 2969, coerce 2709, standard 4069. Budgets are not automatically rebased.
+
+## 2026-10-15 — Direct agent commands and complete verification
+
+- Owner approved direct `agent:*` execution rather than ad hoc duplicate
+  scripts, shell filters or manual exit-code bookkeeping.
+- `agent:verify:all` composes preflight, guidance, the unchanged CI-parity
+  check order, tooling and staged/unstaged whitespace checks. Existing
+  `agent:verify` remains independently available; no CI workflow changes.
+- Shared gates print per-step status/exit-code summaries and retain fail-fast
+  and signal propagation. Signals may terminate before a summary is printed.
+- Agent-only tests use a small native-event adapter around Node's `spec`
+  reporter. Built-in `dot` alone was rejected because it lacks detailed
+  failure diagnostics and totals. User-facing tests keep their existing output.
+
+## Symbol-keyed object fields
+
+Retained rationale is in the [archived design summary](archive/symbol-keyed-fields-design.md);
+historical test, performance and size results are in the
+[verification summary](archive/symbol-keyed-fields-verification.md).
+These summaries replace the superseded plans and experiment-by-experiment notes.
 
 ## Rejected / deferred
-
-- 2026-10-14 follow-up: owner approved describing all captured object fields,
-  including inherited enumerable strings. Removed description-only ownership
-  tracking and filtering; parsing and captured field order are unchanged.
-  This supersedes the earlier own-only description requirement below.
-
-- 2026-10-14, in-flight Symbol snapshots: owner approved replacing prototype-map
-  reconstruction with flat key/schema arrays and indexed traversal. Preserve
-  inherited-string order, own enumerable Symbol membership, getters once,
-  shared live child parsers and lazy frozen introspection. Description ownership
-  stays outside the parsing loop. See
-  [verification evidence](../docs/symbol-keyed-fields-verification.md).
-  This simplification does not establish the original performance acceptance.
 
 - A `.github/copilot-instructions.md` file — would duplicate `AGENTS.md`'s
   role for the same client (see above).
