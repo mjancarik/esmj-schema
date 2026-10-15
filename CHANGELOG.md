@@ -1,3 +1,14 @@
+## 0.10.0 (2026-10-15)
+
+* chore: 🤖 improve agent workflows and tighten size budgets ([6ae6a5c](https://github.com/mjancarik/esmj-schema/commit/6ae6a5c))
+* feat: 🎸 add symbol-keyed object fields and simplify wrappers ([fbe9369](https://github.com/mjancarik/esmj-schema/commit/fbe9369))
+
+### BREAKING CHANGE
+
+* 🧨 Remove the public hookOriginal export; use schema modifiers or extend
+instead. Object schemas capture field definitions at construction;
+create a new schema to change fields. Child schemas remain shared and
+mutable.
 ## Unreleased
 
 * Object descriptions now include inherited enumerable string fields, matching
